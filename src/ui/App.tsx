@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useStore } from '@/state/store';
 import { Dashboard } from './Dashboard';
 import { EventsPanel } from './EventsPanel';
@@ -61,6 +62,69 @@ function HUD() {
       <button className="btn" onClick={() => setHelpOpen(true)} title="Help & shortcuts">
         ?
       </button>
+    </div>
+  );
+}
+
+/** First-run hint that fades away; subtle discoverability per the spec. */
+function FirstRunHint() {
+  const [visible, setVisible] = useState(() => {
+    try {
+      return !localStorage.getItem('genesis-visited');
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    if (!visible) return;
+    try {
+      localStorage.setItem('genesis-visited', '1');
+    } catch {
+      /* private mode */
+    }
+    const t = setTimeout(() => setVisible(false), 14000);
+    return () => clearTimeout(t);
+  }, [visible]);
+  if (!visible) return null;
+  return (
+    <div className="glass absolute top-16 left-1/2 -translate-x-1/2 px-4 py-2 text-xs text-slate-300 animate-fade-in flex items-center gap-3">
+      <span>🌱 Life has been seeded — evolution is already running.</span>
+      <span className="text-slate-500">
+        Drag to pan · scroll to zoom · <kbd className="text-emerald-300">G</kbd> god mode ·{' '}
+        <kbd className="text-emerald-300">L</kbd> lab
+      </span>
+      <button
+        className="text-slate-500 hover:text-white"
+        style={{ pointerEvents: 'auto' }}
+        onClick={() => setVisible(false)}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+/** Mobile gets a simplified nudge — the sim is desktop-first. */
+function MobileNudge() {
+  const [dismissed, setDismissed] = useState(false);
+  const small = typeof window !== 'undefined' && window.innerWidth < 768;
+  if (!small || dismissed) return null;
+  return (
+    <div
+      className="absolute inset-0 bg-black/70 flex items-center justify-center p-6"
+      style={{ pointerEvents: 'auto' }}
+    >
+      <div className="glass p-6 max-w-sm text-center">
+        <div className="text-3xl mb-2">🌍</div>
+        <h2 className="font-semibold mb-2">GENESIS is best on desktop</h2>
+        <p className="text-xs text-slate-400 mb-4">
+          The full ecosystem simulation, god tools and dashboards need a big screen and a mouse.
+          You can still watch the world evolve here.
+        </p>
+        <button className="btn w-full" onClick={() => setDismissed(true)}>
+          Watch anyway
+        </button>
+      </div>
     </div>
   );
 }
@@ -132,7 +196,9 @@ export function App() {
       <GeneticLab />
       <Inspector />
       <Toast />
+      <FirstRunHint />
       <Help />
+      <MobileNudge />
     </>
   );
 }

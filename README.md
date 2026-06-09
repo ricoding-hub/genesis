@@ -5,7 +5,6 @@
 > 100% client-side. No backend, no APIs, no accounts. One command to run, one click to deploy.
 
 ![GENESIS screenshot](docs/screenshot.png)
-*<!-- Replace with a real screenshot or GIF of your world -->*
 
 ---
 
