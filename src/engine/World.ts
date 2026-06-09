@@ -9,14 +9,14 @@ export const WORLD_W = WORLD_COLS * TILE_SIZE;
 export const WORLD_H = WORLD_ROWS * TILE_SIZE;
 
 export const BIOME_PARAMS: Record<Biome, BiomeParams> = {
-  [Biome.Ocean]: { foodRate: 0.004, temperature: 0.45, moveCost: 3.2, walkable: false },
-  [Biome.Shore]: { foodRate: 0.012, temperature: 0.55, moveCost: 1.15, walkable: true },
-  [Biome.Grassland]: { foodRate: 0.028, temperature: 0.6, moveCost: 1.0, walkable: true },
-  [Biome.Forest]: { foodRate: 0.038, temperature: 0.5, moveCost: 1.25, walkable: true },
-  [Biome.Desert]: { foodRate: 0.005, temperature: 0.92, moveCost: 1.3, walkable: true },
-  [Biome.Tundra]: { foodRate: 0.008, temperature: 0.12, moveCost: 1.35, walkable: true },
-  [Biome.Mountain]: { foodRate: 0.006, temperature: 0.25, moveCost: 1.9, walkable: true },
-  [Biome.Wasteland]: { foodRate: 0.001, temperature: 0.65, moveCost: 1.2, walkable: true },
+  [Biome.Ocean]: { foodRate: 0.0005, temperature: 0.45, moveCost: 3.2, walkable: false },
+  [Biome.Shore]: { foodRate: 0.0016, temperature: 0.55, moveCost: 1.15, walkable: true },
+  [Biome.Grassland]: { foodRate: 0.0036, temperature: 0.6, moveCost: 1.0, walkable: true },
+  [Biome.Forest]: { foodRate: 0.005, temperature: 0.5, moveCost: 1.25, walkable: true },
+  [Biome.Desert]: { foodRate: 0.0007, temperature: 0.92, moveCost: 1.3, walkable: true },
+  [Biome.Tundra]: { foodRate: 0.001, temperature: 0.12, moveCost: 1.35, walkable: true },
+  [Biome.Mountain]: { foodRate: 0.0008, temperature: 0.25, moveCost: 1.9, walkable: true },
+  [Biome.Wasteland]: { foodRate: 0.0001, temperature: 0.65, moveCost: 1.2, walkable: true },
 };
 
 export interface Food {
@@ -53,7 +53,7 @@ export class World {
   dirtyTiles: number[] = [];
 
   /** Food cap scales with biome richness; soft global cap for perf. */
-  private readonly maxFood = 2600;
+  private readonly maxFood = 2200;
 
   constructor(seed = (Math.random() * 1e9) | 0) {
     this.biomes = new Uint8Array(this.cols * this.rows);
@@ -85,10 +85,13 @@ export class World {
         let e = elevNoise.fbm(nx * 4.2, ny * 4.2, 5) * 0.5 + 0.5;
         e = clamp01(e * falloff + 0.04);
         const m = moistNoise.fbm(nx * 3.1 + 40, ny * 3.1 + 40, 4) * 0.5 + 0.5;
-        // Latitude gradient + noise → cold poles.
+        // Latitude gradient + noise → cold poles; altitude cools too.
         const lat = Math.abs(ny) * 2;
         const t = clamp01(
-          1 - lat * 0.85 + tempNoise.fbm(nx * 2.5 - 80, ny * 2.5 - 80, 3) * 0.25,
+          1 -
+            lat * 1.05 +
+            tempNoise.fbm(nx * 2.5 - 80, ny * 2.5 - 80, 3) * 0.3 -
+            Math.max(0, e - 0.58) * 1.1,
         );
 
         this.elevation[i] = e;
@@ -101,8 +104,8 @@ export class World {
   private classify(e: number, m: number, t: number): Biome {
     if (e < 0.34) return Biome.Ocean;
     if (e < 0.385) return Biome.Shore;
-    if (e > 0.78) return Biome.Mountain;
-    if (t < 0.28) return Biome.Tundra;
+    if (e > 0.72) return Biome.Mountain;
+    if (t < 0.3) return Biome.Tundra;
     if (t > 0.72 && m < 0.42) return Biome.Desert;
     if (m > 0.52) return Biome.Forest;
     return Biome.Grassland;

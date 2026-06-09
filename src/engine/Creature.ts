@@ -317,7 +317,7 @@ export class Creature {
     const efficiency = 1.25 - this.genes.efficiency * 0.6;
     const cold = world.temperatureAt(this.x, this.y) < 0.15 ? 1.5 : 1;
     const drain =
-      (0.9 * sizeFactor + 4.6 * speedNorm * speedNorm * sizeFactor * biome.moveCost) *
+      (1.15 * sizeFactor + 5.2 * speedNorm * speedNorm * sizeFactor * biome.moveCost) *
       efficiency *
       cold;
     this.energy -= drain * dt;

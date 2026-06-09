@@ -149,6 +149,15 @@ export class Renderer {
     ctx.fillStyle = rgbToCss(color);
     ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
 
+    // Organic edge blobs spilling into neighbor tiles break up the grid.
+    for (let s = 0; s < 3; s++) {
+      const bx = x + rng() * TILE_SIZE;
+      const by = y + rng() * TILE_SIZE;
+      ctx.beginPath();
+      ctx.arc(bx, by, 3.5 + rng() * 5.5, 0, TAU);
+      ctx.fill();
+    }
+
     // Organic speckle texture.
     const speckles = biome === Biome.Forest ? 4 : 2;
     ctx.fillStyle = rgbToCss(mixRgb(color, accent, 0.9), 0.5);
@@ -332,7 +341,8 @@ export class Renderer {
   private drawCreature(ctx: CanvasRenderingContext2D, c: Creature, light: number): void {
     const color = this.sim.species.speciesColor(c.speciesId);
     const breathe = 1 + Math.sin(this.time * 3.4 + c.animPhase) * 0.06;
-    const r = c.radius * breathe;
+    // Keep creatures legible when zoomed out: enforce a min on-screen size.
+    const r = Math.max(c.radius * breathe, 2.4 / this.camera.dzoom);
     const energyT = clamp01(c.energy / c.maxEnergy);
 
     // Motion trail.
@@ -376,6 +386,10 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, TAU);
     ctx.fill();
+    // Dark outline for contrast against terrain.
+    ctx.strokeStyle = 'rgba(5,8,16,0.65)';
+    ctx.lineWidth = Math.max(0.6, r * 0.12);
+    ctx.stroke();
 
     // Belly highlight.
     ctx.fillStyle = 'rgba(255,255,255,0.28)';

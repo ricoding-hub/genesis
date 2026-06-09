@@ -16,6 +16,8 @@ canvasRoot.appendChild(entityCanvas);
 
 const engine = createEngine(terrainCanvas, entityCanvas);
 const { sim, camera, renderer } = engine;
+// Expose for debugging / automated verification.
+(window as unknown as Record<string, unknown>).__engine = engine;
 
 function resize(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);

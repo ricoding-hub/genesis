@@ -52,7 +52,7 @@ export class Simulation {
   constructor() {
     this.seed(SEED_CREATURES);
     // Pre-warm food so the first generation can eat.
-    for (let i = 0; i < 60; i++) this.world.update(1, 1.6);
+    for (let i = 0; i < 240; i++) this.world.update(1, 2.2);
   }
 
   get dayPhase(): number {
@@ -67,13 +67,30 @@ export class Simulation {
     return this.lightLevel < 0.35;
   }
 
-  /** Seed `n` random creatures on walkable land. */
+  /**
+   * Seed `n` creatures as a handful of founder clusters: each cluster
+   * shares a jittered copy of one genome, so early populations have
+   * compatible mates and species form meaningful groups.
+   */
   seed(n: number): void {
-    for (let i = 0; i < n; i++) {
-      const pos = this.randomLandPosition();
-      const c = new Creature(pos.x, pos.y, randomGenes());
-      this.species.assign(c, this.worldAge, 0);
-      this.creatures.push(c);
+    const clusters = Math.max(1, Math.round(n / 8));
+    for (let k = 0; k < clusters; k++) {
+      const founder = randomGenes();
+      const home = this.randomLandPosition();
+      const members = Math.ceil(n / clusters);
+      for (let i = 0; i < members; i++) {
+        const genes = mutate(cloneGenes(founder));
+        let x = home.x + rand(-90, 90);
+        let y = home.y + rand(-90, 90);
+        if (!this.world.isWalkable(x, y)) {
+          const p = this.randomLandPosition();
+          x = p.x;
+          y = p.y;
+        }
+        const c = new Creature(x, y, genes);
+        this.species.assign(c, this.worldAge, 0);
+        this.creatures.push(c);
+      }
     }
     this.species.refresh(this.creatures);
   }
