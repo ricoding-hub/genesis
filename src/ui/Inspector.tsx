@@ -23,14 +23,14 @@ export function Inspector() {
   const agePct = Math.round((info.age / info.lifespan) * 100);
 
   return (
-    <div className="glass absolute bottom-4 left-3 w-64 p-3 animate-slide-up">
+    <div className="glass absolute bottom-4 left-3 w-64 max-md:left-[64px] max-md:right-2 max-md:w-auto max-md:bottom-[84px] p-3 animate-slide-up">
       <div className="flex items-center gap-2 mb-2">
         <span
           className="w-3.5 h-3.5 rounded-full border border-white/30"
           style={{ background: info.speciesColor }}
         />
-        <span className="text-xs font-semibold">
-          Creature #{info.id} · sp.{info.speciesId}
+        <span className="text-xs font-semibold capitalize">
+          {info.archetype} #{info.id} · sp.{info.speciesId}
         </span>
         <button
           className="btn ml-auto !px-1.5 !py-0.5"

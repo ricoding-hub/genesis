@@ -77,12 +77,12 @@ export function Minimap() {
   if (!visible) return null;
 
   return (
-    <div className="glass absolute bottom-4 right-3 p-1.5 animate-fade-in">
+    <div className="glass absolute bottom-4 right-3 max-md:bottom-[64px] max-md:right-2 p-1.5 animate-fade-in">
       <canvas
         ref={ref}
         width={MAP_W}
         height={MAP_H}
-        className="rounded-lg cursor-pointer block"
+        className="rounded-lg cursor-pointer block max-md:w-[132px] max-md:h-auto"
         style={{ pointerEvents: 'auto' }}
         title="Click to jump"
         onPointerDown={(e) => {

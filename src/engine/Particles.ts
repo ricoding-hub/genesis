@@ -24,10 +24,12 @@ const MAX_PARTICLES = 420;
  * and bursts.
  */
 export class ParticleSystem {
+  /** 1 = full budget, 0.5 = mobile budget. */
+  quality = 1;
   private pool: Particle[] = [];
 
   private spawn(p: Particle): void {
-    if (this.pool.length >= MAX_PARTICLES) return;
+    if (this.pool.length >= MAX_PARTICLES * this.quality) return;
     this.pool.push(p);
   }
 
@@ -70,7 +72,7 @@ export class ParticleSystem {
   updateAmbient(world: World, camera: Camera, dt: number, isNight: boolean): void {
     const rect = camera.visibleRect();
     // Target ambient count scales inversely with zoom-out (avoid dust storms).
-    const target = Math.min(150, 40 + camera.dzoom * 90);
+    const target = Math.min(150, 40 + camera.dzoom * 90) * this.quality;
     let ambient = 0;
     for (const p of this.pool) if (p.kind === 'ambient') ambient++;
 

@@ -318,6 +318,7 @@ export class Simulation {
       generation: c.generation,
       speciesId: c.speciesId,
       speciesColor: this.species.speciesColor(c.speciesId),
+      archetype: this.species.species[c.speciesId]?.archetype ?? 'lizard',
       children: c.children,
     };
   }

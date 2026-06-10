@@ -1,6 +1,7 @@
 import { Genes, SpeciesInfo } from '@/types';
 import { hsl } from '@/utils/colors';
 import { averageGenes, geneDistance } from './Genetics';
+import { pickArchetype } from './Sprites';
 import type { Creature } from './Creature';
 
 /** Genetic distance beyond which an offspring founds a new species. */
@@ -72,6 +73,7 @@ export class SpeciesTracker {
     const parentId = best;
     const info: SpeciesInfo = {
       id,
+      archetype: pickArchetype(creature.genes),
       centroid: { ...creature.genes },
       color: this.colorFor(creature.genes, id),
       bornGeneration: generation,

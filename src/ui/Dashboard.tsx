@@ -134,7 +134,7 @@ export function Dashboard() {
     .slice(0, 6);
 
   return (
-    <div className="glass absolute left-3 top-16 bottom-20 w-[400px] p-4 overflow-y-auto thin-scroll animate-slide-up">
+    <div className="glass absolute left-3 top-16 bottom-20 w-[400px] max-md:left-2 max-md:right-2 max-md:top-12 max-md:bottom-16 max-md:w-auto p-4 overflow-y-auto thin-scroll animate-slide-up">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold">📊 Evolution Dashboard</h2>
         <button className="btn" onClick={() => setOpen(false)}>

@@ -1,5 +1,6 @@
 import { Biome, BIOME_NAMES, GodTool } from '@/types';
 import { useStore } from '@/state/store';
+import { useIsMobile } from './useIsMobile';
 
 const PAINTABLE: Biome[] = [
   Biome.Grassland,
@@ -40,9 +41,16 @@ export function GodMode() {
   const setBrushRadius = useStore((s) => s.setBrushRadius);
   const setLabOpen = useStore((s) => s.setLabOpen);
   const setSpawnGenes = useStore((s) => s.setSpawnGenes);
+  const isMobile = useIsMobile();
 
   return (
-    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+    <div
+      className={
+        isMobile
+          ? 'absolute left-2 bottom-[84px] flex flex-col-reverse gap-2 items-start'
+          : 'absolute left-3 top-1/2 -translate-y-1/2 flex flex-col gap-2'
+      }
+    >
       <button
         className={`glass px-3 py-2 text-sm font-semibold transition-colors ${
           open ? 'text-amber-300' : 'text-slate-300 hover:text-white'
@@ -51,11 +59,11 @@ export function GodMode() {
         title="Toggle God Mode (G)"
         style={{ pointerEvents: 'auto' }}
       >
-        ⚡ God Mode
+        ⚡{!isMobile && ' God Mode'}
       </button>
 
       {open && (
-        <div className="glass p-2.5 flex flex-col gap-1.5 w-48 animate-slide-up">
+        <div className="glass p-2.5 flex flex-col gap-1.5 w-48 animate-slide-up max-h-[55vh] overflow-y-auto thin-scroll">
           {TOOLS.map((t) => (
             <button
               key={t.id}

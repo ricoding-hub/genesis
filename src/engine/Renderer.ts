@@ -2,6 +2,7 @@ import { Biome, GodTool } from '@/types';
 import { BIOME_COLORS, mixRgb, nightOverlay, rgbToCss } from '@/utils/colors';
 import { clamp01, TAU } from '@/utils/math';
 import { mulberry32 } from '@/utils/noise';
+import { ArchetypeId, getSprite } from './Sprites';
 import type { Camera } from './Camera';
 import type { Creature } from './Creature';
 import { ParticleSystem } from './Particles';
@@ -25,6 +26,8 @@ export class Renderer {
   particles = new ParticleSystem();
   brush: BrushState = { tool: 'none', x: 0, y: 0, radius: 60, visible: false };
   selected: Creature | null = null;
+  /** 1 = full effects (desktop), 0.5 = reduced (mobile/touch). */
+  quality = 1;
 
   private terrainCtx: CanvasRenderingContext2D;
   private entityCtx: CanvasRenderingContext2D;
@@ -66,9 +69,12 @@ export class Renderer {
       c.style.width = `${w}px`;
       c.style.height = `${h}px`;
     }
-    this.waterFx.width = Math.round(w * dpr);
-    this.waterFx.height = Math.round(h * dpr);
+    // Water FX runs at half resolution — the soft look reads as blur and
+    // the composite fill-rate cost drops 4x.
+    this.waterFx.width = Math.max(1, Math.round((w * dpr) / 2));
+    this.waterFx.height = Math.max(1, Math.round((h * dpr) / 2));
     this.camera.setViewport(w, h);
+    this.particles.quality = this.quality;
   }
 
   /** Render one frame. `dt` is real seconds since last frame. */
@@ -212,16 +218,17 @@ export class Renderer {
 
   // ---------------- per-frame layers ----------------
 
-  private applyCameraTransform(ctx: CanvasRenderingContext2D): void {
+  private applyCameraTransform(ctx: CanvasRenderingContext2D, scale = 1): void {
     const cam = this.camera;
-    const z = cam.dzoom * this.dpr;
+    const dpr = this.dpr * scale;
+    const z = cam.dzoom * dpr;
     ctx.setTransform(
       z,
       0,
       0,
       z,
-      this.dpr * (cam.viewportW / 2) - cam.dx * z,
-      this.dpr * (cam.viewportH / 2) - cam.dy * z,
+      dpr * (cam.viewportW / 2) - cam.dx * z,
+      dpr * (cam.viewportH / 2) - cam.dy * z,
     );
   }
 
@@ -235,11 +242,11 @@ export class Renderer {
     ctx.imageSmoothingEnabled = this.camera.dzoom < 1;
     ctx.drawImage(this.baked, 0, 0);
 
-    // Animated water caustics, masked to ocean.
+    // Animated water caustics, masked to ocean (half-res buffer).
     const fx = this.waterFxCtx;
     fx.setTransform(1, 0, 0, 1, 0, 0);
     fx.clearRect(0, 0, this.waterFx.width, this.waterFx.height);
-    this.applyCameraTransform(fx);
+    this.applyCameraTransform(fx, 0.5);
     fx.drawImage(this.waterMask, 0, 0);
     fx.globalCompositeOperation = 'source-in';
     const t = this.time;
@@ -253,7 +260,7 @@ export class Renderer {
     fx.globalCompositeOperation = 'source-over';
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(this.waterFx, 0, 0);
+    ctx.drawImage(this.waterFx, 0, 0, this.terrainCanvas.width, this.terrainCanvas.height);
   }
 
   private drawEntityLayer(dt: number): void {
@@ -261,6 +268,8 @@ export class Renderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.entityCanvas.width, this.entityCanvas.height);
     this.applyCameraTransform(ctx);
+    // Crisp pixel-art sprites.
+    ctx.imageSmoothingEnabled = false;
 
     const rect = this.camera.visibleRect();
     const pad = 30;
@@ -344,18 +353,21 @@ export class Renderer {
     // Keep creatures legible when zoomed out: enforce a min on-screen size.
     const r = Math.max(c.radius * breathe, 2.4 / this.camera.dzoom);
     const energyT = clamp01(c.energy / c.maxEnergy);
+    // LOD: below this zoom a sprite is a smudge — draw colored dots instead.
+    const useSprite = this.camera.dzoom >= 0.55;
 
-    // Motion trail.
+    // Motion trail (sparser on low quality).
     const tr = c.trail;
+    const trailStep = this.quality < 1 ? 4 : 2;
     if (tr.length >= 4) {
       ctx.strokeStyle = color;
       ctx.lineCap = 'round';
-      for (let i = 2; i < tr.length; i += 2) {
+      for (let i = trailStep; i < tr.length; i += trailStep) {
         const t = i / tr.length;
         ctx.globalAlpha = t * 0.22;
         ctx.lineWidth = r * t * 1.1;
         ctx.beginPath();
-        ctx.moveTo(tr[i - 2], tr[i - 1]);
+        ctx.moveTo(tr[i - trailStep], tr[i - trailStep + 1]);
         ctx.lineTo(tr[i], tr[i + 1]);
         ctx.stroke();
       }
@@ -374,45 +386,59 @@ export class Renderer {
       ctx.globalAlpha = 1;
     }
 
-    // Body: ellipse stretched along heading, slight wobble.
-    const wobble = Math.sin(this.time * 6 + c.animPhase) * 0.12;
-    ctx.save();
-    ctx.translate(c.x, c.y);
-    ctx.rotate(c.heading + wobble * 0.4);
-    const stretch = 1 + Math.min(0.35, Math.hypot(c.vx, c.vy) / (c.maxSpeed + 1) * 0.4);
-    ctx.scale(stretch, 1 / stretch + wobble * 0.05);
+    if (useSprite) {
+      // Pixel-art body: archetype sprite, flipped to face travel direction.
+      const sp = this.sim.species.species[c.speciesId];
+      const arch = (sp?.archetype ?? 'lizard') as ArchetypeId;
+      const moving = Math.hypot(c.vx, c.vy) > c.maxSpeed * 0.18;
+      const walkClock = this.time * (3 + c.maxSpeed * 0.09) + c.animPhase;
+      const frame: 0 | 1 = moving && Math.sin(walkClock * TAU * 0.5) > 0 ? 1 : 0;
+      const sprite = getSprite(arch, c.genes.hue, frame);
+      const scale = (r * 2.7) / sprite.width;
+      const w = sprite.width * scale;
+      const h = sprite.height * scale;
+      const bob = moving ? Math.sin(walkClock * TAU * 0.5) * r * 0.07 : 0;
+      const facingLeft = Math.cos(c.heading) < 0;
 
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
-    ctx.fill();
-    // Dark outline for contrast against terrain.
-    ctx.strokeStyle = 'rgba(5,8,16,0.65)';
-    ctx.lineWidth = Math.max(0.6, r * 0.12);
-    ctx.stroke();
-
-    // Belly highlight.
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    ctx.beginPath();
-    ctx.arc(-r * 0.15, -r * 0.25, r * 0.55, 0, TAU);
-    ctx.fill();
-
-    // Eye dot toward heading.
-    ctx.fillStyle = 'rgba(10,14,22,0.85)';
-    ctx.beginPath();
-    ctx.arc(r * 0.55, 0, Math.max(0.8, r * 0.18), 0, TAU);
-    ctx.fill();
-
-    // Plague tint.
-    if (c.plagued) {
-      ctx.globalAlpha = 0.5 + Math.sin(this.time * 8) * 0.2;
-      ctx.fillStyle = '#76e07a';
+      // Ground shadow.
+      ctx.fillStyle = 'rgba(5,8,16,0.3)';
       ctx.beginPath();
-      ctx.arc(0, 0, r * 0.8, 0, TAU);
+      ctx.ellipse(c.x, c.y + h * 0.42, w * 0.34, h * 0.12, 0, 0, TAU);
       ctx.fill();
-      ctx.globalAlpha = 1;
+
+      ctx.save();
+      ctx.translate(c.x, c.y + bob);
+      if (facingLeft) ctx.scale(-1, 1);
+      ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
+      ctx.restore();
+
+      // Plague tint.
+      if (c.plagued) {
+        ctx.globalAlpha = 0.35 + Math.sin(this.time * 8) * 0.15;
+        ctx.fillStyle = '#76e07a';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, r * 0.9, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    } else {
+      // Dot LOD for far zoom.
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(5,8,16,0.65)';
+      ctx.lineWidth = Math.max(0.6, r * 0.12);
+      ctx.stroke();
+      if (c.plagued) {
+        ctx.globalAlpha = 0.5 + Math.sin(this.time * 8) * 0.2;
+        ctx.fillStyle = '#76e07a';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, r * 0.8, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
     }
-    ctx.restore();
 
     // Age ring: arc fills with age (visible when zoomed in).
     if (this.camera.dzoom > 0.8) {

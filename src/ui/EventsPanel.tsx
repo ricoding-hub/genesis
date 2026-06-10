@@ -15,8 +15,8 @@ export function EventsPanel() {
   const active = snapshot?.activeEvents ?? [];
 
   return (
-    <div className="absolute right-3 top-3 flex flex-col gap-2 items-end">
-      <div className="glass px-2.5 py-2 flex gap-1.5 animate-fade-in">
+    <div className="absolute right-2 md:right-3 top-12 md:top-3 flex flex-col gap-2 items-end">
+      <div className="glass px-2 md:px-2.5 py-1.5 md:py-2 flex gap-1.5 animate-fade-in">
         {EVENTS.map((e) => {
           const isActive = active.some((a) => a.type === e.id);
           return (
@@ -30,14 +30,15 @@ export function EventsPanel() {
               title={e.hint}
               disabled={isActive}
             >
-              {e.icon} {e.label}
+              {e.icon}
+              <span className="hidden md:inline"> {e.label}</span>
             </button>
           );
         })}
       </div>
 
       {active.map((a) => (
-        <div key={a.type} className="glass px-3 py-2 w-64 animate-slide-up">
+        <div key={a.type} className="glass px-3 py-2 w-56 md:w-64 animate-slide-up">
           <div className="text-xs text-amber-200 mb-1">{a.label}</div>
           <div className="h-1 rounded bg-white/10 overflow-hidden">
             <div

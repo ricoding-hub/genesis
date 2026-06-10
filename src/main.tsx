@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { createEngine } from './engine/engine';
+import { debugSheet } from './engine/Sprites';
 import { useStore } from './state/store';
 import { App } from './ui/App';
 import type { SimSpeed } from './engine/Simulation';
@@ -18,9 +19,14 @@ const engine = createEngine(terrainCanvas, entityCanvas);
 const { sim, camera, renderer } = engine;
 // Expose for debugging / automated verification.
 (window as unknown as Record<string, unknown>).__engine = engine;
+(window as unknown as Record<string, unknown>).__debugSprites = debugSheet;
+
+/** Coarse pointer ≈ touch device: lower pixel budget, fewer particles. */
+const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+renderer.quality = isCoarse ? 0.5 : 1;
 
 function resize(): void {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, isCoarse ? 1.5 : 2);
   renderer.resize(window.innerWidth, window.innerHeight, dpr);
 }
 resize();
@@ -72,6 +78,20 @@ let dragging = false;
 let painting = false;
 let lastPointer = { x: 0, y: 0 };
 let movedSinceDown = 0;
+/** Active pointers (multi-touch); two fingers = pinch zoom. */
+const pointers = new Map<number, { x: number; y: number }>();
+let pinchDist = 0;
+let pinching = false;
+
+function pinchInfo(): { cx: number; cy: number; d: number } | null {
+  if (pointers.size < 2) return null;
+  const [a, b] = [...pointers.values()];
+  return {
+    cx: (a.x + b.x) / 2,
+    cy: (a.y + b.y) / 2,
+    d: Math.hypot(b.x - a.x, b.y - a.y),
+  };
+}
 
 function applyTool(screenX: number, screenY: number): void {
   const { tool, brushBiome, brushRadius, spawnGenes } = useStore.getState();
@@ -98,9 +118,27 @@ function applyTool(screenX: number, screenY: number): void {
 
 entityCanvas.style.touchAction = 'none';
 
+/** True when the event originated on a UI panel rather than the world canvas. */
+function onUI(e: Event): boolean {
+  const t = e.target as HTMLElement | null;
+  return !!t?.closest?.('#ui-root');
+}
+
 window.addEventListener('pointerdown', (e) => {
   // Ignore clicks on UI panels.
-  if ((e.target as HTMLElement).closest('#ui-root')) return;
+  if (onUI(e)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  // Second finger down → switch to pinch, cancel any pan/paint in progress.
+  if (pointers.size === 2) {
+    dragging = false;
+    painting = false;
+    pinching = true;
+    pinchDist = pinchInfo()!.d;
+    return;
+  }
+  if (pinching) return;
+
   const { tool } = useStore.getState();
   lastPointer = { x: e.clientX, y: e.clientY };
   movedSinceDown = 0;
@@ -115,6 +153,20 @@ window.addEventListener('pointerdown', (e) => {
 });
 
 window.addEventListener('pointermove', (e) => {
+  if (pointers.has(e.pointerId)) {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }
+
+  // Two-finger pinch zoom.
+  if (pinching) {
+    const info = pinchInfo();
+    if (info && pinchDist > 0) {
+      camera.zoomAt(info.cx, info.cy, info.d / pinchDist);
+      pinchDist = info.d;
+    }
+    return;
+  }
+
   const dx = e.clientX - lastPointer.x;
   const dy = e.clientY - lastPointer.y;
   movedSinceDown += Math.abs(dx) + Math.abs(dy);
@@ -127,7 +179,7 @@ window.addEventListener('pointermove', (e) => {
     x: w.x,
     y: w.y,
     radius: brushRadius,
-    visible: !(e.target as HTMLElement).closest?.('#ui-root'),
+    visible: !onUI(e),
   };
 
   if (dragging) {
@@ -138,24 +190,39 @@ window.addEventListener('pointermove', (e) => {
   lastPointer = { x: e.clientX, y: e.clientY };
 });
 
-window.addEventListener('pointerup', (e) => {
+function releasePointer(e: PointerEvent): void {
+  pointers.delete(e.pointerId);
+  if (pinching) {
+    // Pinch ends when fewer than two fingers remain; swallow the tap.
+    if (pointers.size < 2) {
+      pinching = false;
+      pinchDist = 0;
+      dragging = false;
+      painting = false;
+      movedSinceDown = 99;
+    }
+    return;
+  }
+
   const wasDragging = dragging;
   dragging = false;
   painting = false;
   // Treat a non-drag click with no tool as creature selection.
   if (wasDragging && movedSinceDown < 6) {
-    if ((e.target as HTMLElement).closest('#ui-root')) return;
+    if (onUI(e)) return;
     const w = camera.screenToWorld(e.clientX, e.clientY);
     const c = sim.creatureAt(w.x, w.y, 20 / camera.dzoom + 10);
     renderer.selected = c;
     useStore.getState().setSelected(c ? sim.creatureInfo(c) : null);
   }
-});
+}
+window.addEventListener('pointerup', releasePointer);
+window.addEventListener('pointercancel', releasePointer);
 
 window.addEventListener(
   'wheel',
   (e) => {
-    if ((e.target as HTMLElement).closest('#ui-root')) return;
+    if (onUI(e)) return;
     e.preventDefault();
     const factor = Math.exp(-e.deltaY * 0.0012);
     camera.zoomAt(e.clientX, e.clientY, factor);

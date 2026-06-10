@@ -77,6 +77,8 @@ export type LifeStage = 'infant' | 'juvenile' | 'adult' | 'elder';
 
 export interface SpeciesInfo {
   id: number;
+  /** Pixel-art body family, fixed at founding (see engine/Sprites.ts). */
+  archetype: string;
   /** Centroid genome the species clusters around. */
   centroid: Genes;
   /** Display color derived from centroid hue. */
@@ -163,5 +165,6 @@ export interface CreatureInfo {
   generation: number;
   speciesId: number;
   speciesColor: string;
+  archetype: string;
   children: number;
 }

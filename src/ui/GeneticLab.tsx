@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { GENE_PRESETS, decodeSize, decodeSpeed, decodeVision } from '@/engine/Genetics';
+import { ARCHETYPE_NAMES, getSprite, pickArchetype } from '@/engine/Sprites';
 import { useStore } from '@/state/store';
 import { Genes } from '@/types';
-import { hsl } from '@/utils/colors';
 import { TAU } from '@/utils/math';
 
 const GENE_LABELS: { key: keyof Genes; label: string; low: string; high: string }[] = [
@@ -42,8 +42,7 @@ function PhenotypePreview({ genes }: { genes: Genes }) {
 
       const cx = w / 2;
       const cy = h / 2;
-      const r = (8 + decodeSize(genes) * 3.4) * (1 + Math.sin(t * 3.2) * 0.05);
-      const color = hsl(genes.hue * 360, 0.72, 0.62);
+      const color = `hsl(${Math.round(genes.hue * 360)},72%,62%)`;
 
       // Vision radius hint.
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -54,33 +53,28 @@ function PhenotypePreview({ genes }: { genes: Genes }) {
       ctx.setLineDash([]);
 
       // Glow scales with nocturnality.
-      ctx.globalAlpha = 0.18 + night * 0.3;
+      ctx.globalAlpha = 0.15 + night * 0.3;
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(cx, cy, r * 2.2, 0, TAU);
+      ctx.arc(cx, cy, 36, 0, TAU);
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      // Body with speed-stretch.
-      const stretch = 1 + genes.speed * 0.35;
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(Math.sin(t * 0.8) * 0.3);
-      ctx.scale(stretch, 1 / stretch);
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.28)';
-      ctx.beginPath();
-      ctx.arc(-r * 0.15, -r * 0.25, r * 0.55, 0, TAU);
-      ctx.fill();
-      // Eye — red-ish for carnivores.
-      ctx.fillStyle = genes.diet > 0.6 ? '#b22' : 'rgba(10,14,22,0.85)';
-      ctx.beginPath();
-      ctx.arc(r * 0.55, 0, Math.max(1.4, r * 0.2), 0, TAU);
-      ctx.fill();
-      ctx.restore();
+      // Animated archetype sprite, scaled by the size gene.
+      const arch = pickArchetype(genes);
+      const frame: 0 | 1 = Math.sin(t * 4) > 0 ? 1 : 0;
+      const sprite = getSprite(arch, genes.hue, frame);
+      const scale = (3.2 + decodeSize(genes) * 0.55) | 0;
+      const sw = sprite.width * scale;
+      const sh = sprite.height * scale;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sprite, cx - sw / 2, cy - sh / 2 + Math.sin(t * 4) * 2, sw, sh);
+
+      // Family name.
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.font = '600 11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(ARCHETYPE_NAMES[arch], cx, h - 8);
 
       raf = requestAnimationFrame(draw);
     };
@@ -118,7 +112,7 @@ export function GeneticLab() {
   ];
 
   return (
-    <div className="glass absolute right-3 top-1/2 -translate-y-1/2 w-[340px] p-4 animate-slide-up max-h-[88vh] overflow-y-auto thin-scroll">
+    <div className="glass absolute right-3 top-1/2 -translate-y-1/2 w-[340px] max-h-[88vh] max-md:inset-x-2 max-md:top-12 max-md:bottom-16 max-md:w-auto max-md:max-h-none max-md:translate-y-0 p-4 animate-slide-up overflow-y-auto thin-scroll">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold">🧪 Genetic Lab</h2>
         <button className="btn" onClick={() => setOpen(false)}>

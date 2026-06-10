@@ -11,6 +11,7 @@
 ## ✨ Features
 
 - **Procedural world** — simplex-noise terrain with 7 biomes (ocean, shore, grassland, forest, desert, tundra, mountain), each with its own food rate, temperature and movement cost
+- **Pixel-art creature families** — every species is assigned a recognizable archetype from its genes (wolf, bear, deer, rabbit, bird, owl, lizard, beetle, humanoid), drawn as hand-crafted, walk-animated pixel sprites colorized by the species' evolving hue
 - **Simulated DNA** — 10 genes per creature: speed, size, vision, color, diet spectrum, efficiency, reproduction threshold, mutation rate, lifespan, nocturnality
 - **Real natural selection** — crossover + mutation on reproduction; the environment decides who survives
 - **Speciation** — populations that drift genetically apart fork into visually distinct species, tracked on a phylogenetic timeline
@@ -19,8 +20,9 @@
 - **Genetic Lab** — design a genome with sliders, preview the phenotype live, release it into the world (presets: Speed Demon, Tank, Balanced, Nocturnal Hunter)
 - **Catastrophic events** — meteor strike, ice age, wildfire, plague; the ecosystem crashes, adapts, rebuilds
 - **Evolution Dashboard** — population per species, gene distribution histograms, diversity index, dominant species card, generation counter
-- **Visual polish** — movement trails, breathing animations, biome particles (pollen, snow, embers, fireflies), water caustics, minimap with density overlay
-- **Performance** — spatial hash grid, pre-baked terrain layer, off-screen culling; smooth with 500+ creatures
+- **Visual polish** — movement trails, walk cycles, biome particles (pollen, snow, embers, fireflies), water caustics, minimap with density overlay
+- **Full mobile support** — one-finger pan, pinch zoom, tap to inspect, and every panel (God Mode, Lab, Dashboard) adapted to phone screens with touch-sized controls
+- **Performance** — spatial hash grid, pre-baked terrain layer, sprite caching, off-screen culling, adaptive quality on mobile; smooth with 500+ creatures
 
 ## 🚀 Run locally
 
@@ -48,9 +50,9 @@ npx gh-pages -d dist
 
 | Input | Action |
 | --- | --- |
-| Drag | Pan the world |
-| Scroll | Zoom |
-| Click creature | Inspect genome, energy, age, lineage |
+| Drag / one finger | Pan the world |
+| Scroll / pinch | Zoom |
+| Click or tap creature | Inspect genome, energy, age, lineage |
 | `Space` | Pause / play |
 | `+` / `-` | Simulation speed (1x · 2x · 5x · 10x) |
 | `.` | Step one tick |
@@ -75,6 +77,7 @@ src/
 ├── engine/          # framework-free simulation core
 │   ├── World.ts        # tile grid, biome generation, food, terraform, regrowth
 │   ├── Genetics.ts     # genome, crossover, mutation, presets
+│   ├── Sprites.ts      # pixel-art archetype templates + gene→family mapping
 │   ├── Creature.ts     # steering behaviors, energy model, lifecycle
 │   ├── Species.ts      # online clustering → speciation tracking
 │   ├── Events.ts       # meteor / ice age / wildfire / plague
