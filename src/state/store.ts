@@ -10,6 +10,7 @@ interface UIState {
   brushRadius: number;
   labOpen: boolean;
   dashboardOpen: boolean;
+  civOpen: boolean;
   minimapVisible: boolean;
   helpOpen: boolean;
   labGenes: Genes;
@@ -25,6 +26,7 @@ interface UIState {
   setBrushRadius(r: number): void;
   setLabOpen(open: boolean): void;
   setDashboardOpen(open: boolean): void;
+  setCivOpen(open: boolean): void;
   toggleMinimap(): void;
   setHelpOpen(open: boolean): void;
   setLabGenes(g: Genes): void;
@@ -43,6 +45,7 @@ export const useStore = create<UIState>((set) => ({
   brushRadius: 70,
   labOpen: false,
   dashboardOpen: false,
+  civOpen: false,
   minimapVisible: true,
   helpOpen: false,
   labGenes: { ...GENE_PRESETS[2].genes },
@@ -61,6 +64,7 @@ export const useStore = create<UIState>((set) => ({
   setBrushRadius: (brushRadius) => set({ brushRadius }),
   setLabOpen: (labOpen) => set({ labOpen }),
   setDashboardOpen: (dashboardOpen) => set({ dashboardOpen }),
+  setCivOpen: (civOpen) => set({ civOpen }),
   toggleMinimap: () => set((s) => ({ minimapVisible: !s.minimapVisible })),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   setLabGenes: (labGenes) => set({ labGenes }),

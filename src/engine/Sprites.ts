@@ -346,7 +346,239 @@ function paletteFor(hue: number): Record<string, string> {
     W: `hsl(${h},42%,78%)`,
     E: '#0b0d13',
     A: `hsl(${(h + 45) % 360},72%,62%)`,
+    // Civilization clothing / gear — fixed colors so eras read at a glance.
+    L: 'hsl(28,46%,38%)', // loincloth / leather
+    C: 'hsl(34,44%,54%)', // cloth tunic
+    R: 'hsl(42,20%,84%)', // pale robe
+    T: 'hsl(28,52%,32%)', // wood (club/spear shaft)
+    K: 'hsl(220,9%,56%)', // stone / spear head
+    F: '#ff9a3c', // flame
+    G: '#ffd24a', // gold accent (staff, crown)
+    H: 'hsl(45,58%,60%)', // straw hat
   };
+}
+
+/**
+ * Humanoid sprites by tribe Era (see types Era). Clothing and held tools
+ * evolve: bare + club → torch → spear → farmer → robe → robe with staff.
+ * 16×12, faces right, two walk frames. Letters: see paletteFor() above.
+ */
+const HUMAN_ERAS: string[][][] = [
+  // Era 0 — Stone: bare torso, loincloth, stone club.
+  [
+    [
+      '.....####...KK..',
+      '....#BBBB#..KK..',
+      '....#BEBE#...T..',
+      '....#BBBB#..T...',
+      '.....#BB#.T.....',
+      '...##BBBB##.....',
+      '..#B#BBBB#B#....',
+      '..#B#BBBB#B#....',
+      '...#LLLLLL#.....',
+      '....#LLLL#......',
+      '....#B##B#......',
+      '....##..##......',
+    ],
+    [
+      '.....####...KK..',
+      '....#BBBB#..KK..',
+      '....#BEBE#...T..',
+      '....#BBBB#..T...',
+      '.....#BB#.T.....',
+      '...##BBBB##.....',
+      '..#B#BBBB#B#....',
+      '..#B#BBBB#B#....',
+      '...#LLLLLL#.....',
+      '....#LLLL#......',
+      '...#B#..#B#.....',
+      '...##....##.....',
+    ],
+  ],
+  // Era 1 — Fire: cloth wrap, a lit torch.
+  [
+    [
+      '.....####....F..',
+      '....#BBBB#..FFF.',
+      '....#BEBE#..FF..',
+      '....#BBBB#...T..',
+      '.....#BB#...T...',
+      '...##CCCC##T....',
+      '..#B#CCCC#B#....',
+      '..#B#CCCC#B#....',
+      '...#CCCCCC#.....',
+      '....#LLLL#......',
+      '....#B##B#......',
+      '....##..##......',
+    ],
+    [
+      '.....####....F..',
+      '....#BBBB#..FFF.',
+      '....#BEBE#..FF..',
+      '....#BBBB#...T..',
+      '.....#BB#...T...',
+      '...##CCCC##T....',
+      '..#B#CCCC#B#....',
+      '..#B#CCCC#B#....',
+      '...#CCCCCC#.....',
+      '....#LLLL#......',
+      '...#B#..#B#.....',
+      '...##....##.....',
+    ],
+  ],
+  // Era 2 — Tools: tunic, a stone-tipped spear.
+  [
+    [
+      '.....####....K..',
+      '....#BBBB#...K..',
+      '....#BEBE#...T..',
+      '....#BBBB#...T..',
+      '.....#BB#...T...',
+      '...##CCCC#T#....',
+      '..#B#CCCC#B#....',
+      '..#B#CCCC#B#....',
+      '...#CCCCCC#.....',
+      '....#CCCC#......',
+      '....#B##B#......',
+      '....##..##......',
+    ],
+    [
+      '.....####....K..',
+      '....#BBBB#...K..',
+      '....#BEBE#...T..',
+      '....#BBBB#...T..',
+      '.....#BB#...T...',
+      '...##CCCC#T#....',
+      '..#B#CCCC#B#....',
+      '..#B#CCCC#B#....',
+      '...#CCCCCC#.....',
+      '....#CCCC#......',
+      '...#B#..#B#.....',
+      '...##....##.....',
+    ],
+  ],
+  // Era 3 — Agriculture: straw hat, full tunic.
+  [
+    [
+      '....HHHHHH......',
+      '...HHHHHHHH.....',
+      '....#BEBE#......',
+      '....#BBBB#......',
+      '.....#BB#.......',
+      '...##CCCC##.....',
+      '..#C#CCCC#C#....',
+      '..#C#CCCC#C#....',
+      '...#CCCCCC#.....',
+      '....#CCCC#......',
+      '....#B##B#......',
+      '....##..##......',
+    ],
+    [
+      '....HHHHHH......',
+      '...HHHHHHHH.....',
+      '....#BEBE#......',
+      '....#BBBB#......',
+      '.....#BB#.......',
+      '...##CCCC##.....',
+      '..#C#CCCC#C#....',
+      '..#C#CCCC#C#....',
+      '...#CCCCCC#.....',
+      '....#CCCC#......',
+      '...#B#..#B#.....',
+      '...##....##.....',
+    ],
+  ],
+  // Era 4 — Faith: pale robe.
+  [
+    [
+      '.....####.......',
+      '....#BBBB#......',
+      '....#BEBE#......',
+      '....#BBBB#......',
+      '....RRRRRR......',
+      '...R#RRRR#R.....',
+      '..#R#RRRR#R#....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '....##..##......',
+    ],
+    [
+      '.....####.......',
+      '....#BBBB#......',
+      '....#BEBE#......',
+      '....#BBBB#......',
+      '....RRRRRR......',
+      '..#R#RRRR#R#....',
+      '...R#RRRR#R.....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#R#..#R#.....',
+    ],
+  ],
+  // Era 5 — Writing: robe with golden staff.
+  [
+    [
+      '.....####....G..',
+      '....#BBBB#...G..',
+      '....#BEBE#...G..',
+      '....#BBBB#...G..',
+      '....RRRRRR..G...',
+      '...R#RRRR#RG....',
+      '..#R#RRRR#R#....',
+      '...#RRRRRR#G....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '....##..##......',
+    ],
+    [
+      '.....####....G..',
+      '....#BBBB#...G..',
+      '....#BEBE#...G..',
+      '....#BBBB#...G..',
+      '....RRRRRR..G...',
+      '...R#RRRR#RG....',
+      '..#R#RRRR#R#....',
+      '...#RRRRRR#G....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#RRRRRR#.....',
+      '...#R#..#R#.....',
+    ],
+  ],
+];
+
+/** Get (and cache) a humanoid sprite for a given era + hue + frame. */
+export function humanoidSprite(era: number, hue: number, frame: 0 | 1): HTMLCanvasElement {
+  const e = Math.max(0, Math.min(HUMAN_ERAS.length - 1, era | 0));
+  const bucket = Math.round((((hue % 1) + 1) % 1) * HUE_BUCKETS) % HUE_BUCKETS;
+  const key = `human${e}|${bucket}|${frame}`;
+  const cached = spriteCache.get(key);
+  if (cached) return cached;
+
+  const rows = HUMAN_ERAS[e][frame];
+  const w = rows[0].length;
+  const h = rows.length;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const palette = paletteFor(bucket / HUE_BUCKETS);
+  for (let y = 0; y < h; y++) {
+    const row = rows[y];
+    for (let x = 0; x < w; x++) {
+      const ch = row[x];
+      if (ch === '.') continue;
+      ctx.fillStyle = palette[ch] ?? palette.B;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+  spriteCache.set(key, canvas);
+  return canvas;
 }
 
 export function spriteSize(arch: ArchetypeId): { w: number; h: number } {

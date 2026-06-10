@@ -56,6 +56,16 @@ export class Creature {
   trail: number[] = [];
   private trailTimer = 0;
 
+  // ---- Civilization (humanoids only; managed by Culture) ----
+  /** Tribe membership, -1 = none. */
+  tribeId = -1;
+  /** "First penguin" — ventures into the unknown for the tribe. */
+  explorer = false;
+  /** Culture-driven destination (settlement / shrine / frontier). */
+  cultureGoal: { x: number; y: number } | null = null;
+  /** Set true while gathered at a shrine, for the worship visual. */
+  worshipping = false;
+
   constructor(
     x: number,
     y: number,
@@ -227,6 +237,20 @@ export class Creature {
       dirX = m.x - this.x;
       dirY = m.y - this.y;
       urgency = 0.7;
+    } else if (this.cultureGoal !== null) {
+      // Civilization pull: head toward settlement / shrine / frontier.
+      dirX = this.cultureGoal.x - this.x;
+      dirY = this.cultureGoal.y - this.y;
+      const gd2 = dirX * dirX + dirY * dirY;
+      // Arrived: mill about so groups cluster instead of stacking.
+      if (gd2 < 18 * 18) {
+        this.wanderAngle += rand(-3, 3) * dt;
+        dirX = Math.cos(this.wanderAngle);
+        dirY = Math.sin(this.wanderAngle);
+        urgency = 0.3;
+      } else {
+        urgency = 0.6;
+      }
     } else {
       // Wander: slowly drifting heading.
       this.wanderAngle += rand(-2.4, 2.4) * dt;

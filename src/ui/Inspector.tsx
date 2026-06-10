@@ -1,6 +1,6 @@
 import { getEngine } from '@/engine/engine';
 import { useStore } from '@/state/store';
-import { Genes } from '@/types';
+import { ERA_ICONS, ERA_NAMES, Genes } from '@/types';
 
 const TRAITS: { key: keyof Genes; label: string }[] = [
   { key: 'speed', label: 'Speed' },
@@ -48,6 +48,19 @@ export function Inspector() {
         <span>gen {info.generation}</span>
         <span>{info.children} offspring</span>
       </div>
+
+      {info.tribeName && (
+        <div className="text-[10px] mb-2 rounded-md border border-amber-400/20 bg-amber-400/5 px-2 py-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+          <span className="text-amber-200">{info.tribeName}</span>
+          {info.tribeEra !== null && (
+            <span className="text-slate-300">
+              {ERA_ICONS[info.tribeEra]} {ERA_NAMES[info.tribeEra]}
+            </span>
+          )}
+          {info.deity && <span className="text-slate-400">⛩️ worships {info.deity}</span>}
+          {info.explorer && <span className="text-sky-300">🚩 explorer</span>}
+        </div>
+      )}
 
       <div className="mb-1 text-[10px] text-slate-400 flex justify-between">
         <span>Energy</span>

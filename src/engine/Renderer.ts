@@ -2,7 +2,7 @@ import { Biome, GodTool } from '@/types';
 import { BIOME_COLORS, mixRgb, nightOverlay, rgbToCss } from '@/utils/colors';
 import { clamp01, TAU } from '@/utils/math';
 import { mulberry32 } from '@/utils/noise';
-import { ArchetypeId, getSprite } from './Sprites';
+import { ArchetypeId, getSprite, humanoidSprite } from './Sprites';
 import type { Camera } from './Camera';
 import type { Creature } from './Creature';
 import { ParticleSystem } from './Particles';
@@ -315,6 +315,9 @@ export class Renderer {
     for (const b of sim.recentBirths) this.particles.burst(b.x, b.y, 5, '#fff7c0', 28);
     sim.recentBirths.length = 0;
 
+    // Civilization structures (campfires, shrines, farms) under creatures.
+    this.drawStructures(ctx, dt, x0, y0, x1, y1);
+
     // Creatures.
     const light = sim.lightLevel;
     for (const c of sim.creatures) {
@@ -393,7 +396,11 @@ export class Renderer {
       const moving = Math.hypot(c.vx, c.vy) > c.maxSpeed * 0.18;
       const walkClock = this.time * (3 + c.maxSpeed * 0.09) + c.animPhase;
       const frame: 0 | 1 = moving && Math.sin(walkClock * TAU * 0.5) > 0 ? 1 : 0;
-      const sprite = getSprite(arch, c.genes.hue, frame);
+      // Humanoids in a tribe wear their era's clothing/tools.
+      const sprite =
+        arch === 'humanoid' && c.tribeId >= 0
+          ? humanoidSprite(this.sim.culture.tribeEra(c.tribeId), c.genes.hue, frame)
+          : getSprite(arch, c.genes.hue, frame);
       const scale = (r * 2.7) / sprite.width;
       const w = sprite.width * scale;
       const h = sprite.height * scale;
@@ -411,6 +418,11 @@ export class Renderer {
       if (facingLeft) ctx.scale(-1, 1);
       ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
       ctx.restore();
+
+      // Civilization flourishes: explorer flag, worship halo, speech.
+      if (arch === 'humanoid' && c.tribeId >= 0) {
+        this.drawHumanFlourishes(ctx, c, r);
+      }
 
       // Plague tint.
       if (c.plagued) {
@@ -459,6 +471,117 @@ export class Renderer {
       ctx.arc(c.x, c.y, r + 3.5, 0, TAU);
       ctx.stroke();
       ctx.globalAlpha = 1;
+    }
+  }
+
+  /** Explorer flag, worship halo and speech dots for a tribe humanoid. */
+  private drawHumanFlourishes(
+    ctx: CanvasRenderingContext2D,
+    c: Creature,
+    r: number,
+  ): void {
+    const tribe = this.sim.culture.tribe(c.tribeId);
+    const tint = tribe?.color ?? '#fff';
+
+    // Explorer: a little pennant flag above the head.
+    if (c.explorer) {
+      const fx = c.x;
+      const fy = c.y - r - 6;
+      ctx.strokeStyle = 'rgba(230,235,245,0.8)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(fx, fy + 6);
+      ctx.stroke();
+      ctx.fillStyle = tint;
+      const wave = Math.sin(this.time * 6 + c.animPhase) * 1.2;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(fx + 5 + wave, fy + 1.5);
+      ctx.lineTo(fx, fy + 3);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Worship: a soft golden halo while gathered at the shrine.
+    if (c.worshipping) {
+      ctx.globalAlpha = 0.4 + Math.sin(this.time * 4 + c.animPhase) * 0.2;
+      ctx.strokeStyle = '#ffe48a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y - r - 2, 2.4, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Communication: occasional speech tick toward a nearby tribemate.
+    if (this.camera.dzoom > 1.2 && !c.explorer && ((c.id + (this.time | 0)) % 5 === 0)) {
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath();
+      ctx.arc(c.x + r * 0.8, c.y - r * 0.9, 0.9, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  /** Campfires, shrines and farm plots built by tribes. */
+  private drawStructures(
+    ctx: CanvasRenderingContext2D,
+    dt: number,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ): void {
+    for (const s of this.sim.culture.structures) {
+      if (s.x < x0 || s.x > x1 || s.y < y0 || s.y > y1) continue;
+      if (s.type === 'campfire') {
+        // Warm glow.
+        const flick = 0.7 + Math.sin(this.time * 9 + s.id) * 0.3;
+        const glow = ctx.createRadialGradient(s.x, s.y, 2, s.x, s.y, 34);
+        glow.addColorStop(0, `rgba(255,170,70,${0.32 * flick})`);
+        glow.addColorStop(1, 'rgba(255,150,60,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 34, 0, TAU);
+        ctx.fill();
+        // Log pile.
+        ctx.fillStyle = 'hsl(28,52%,30%)';
+        ctx.fillRect(s.x - 4, s.y + 1, 8, 2.5);
+        // Flames.
+        ctx.fillStyle = `rgba(255,${140 + flick * 80 | 0},40,0.95)`;
+        ctx.beginPath();
+        ctx.moveTo(s.x - 3, s.y + 1);
+        ctx.quadraticCurveTo(s.x - 1, s.y - 6 * flick, s.x, s.y - 9 * flick);
+        ctx.quadraticCurveTo(s.x + 1, s.y - 6 * flick, s.x + 3, s.y + 1);
+        ctx.closePath();
+        ctx.fill();
+        if (Math.random() < dt * 9) this.particles.ember(s.x, s.y - 2);
+      } else if (s.type === 'shrine') {
+        // Totem with a faint sacred halo.
+        ctx.globalAlpha = 0.18 + Math.sin(this.time * 1.5 + s.id) * 0.06;
+        ctx.fillStyle = '#ffe9a8';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 26, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        const tribe = this.sim.culture.tribe(s.tribeId);
+        ctx.fillStyle = 'hsl(28,40%,26%)';
+        ctx.fillRect(s.x - 3, s.y - 12, 6, 16);
+        ctx.fillStyle = tribe?.color ?? '#caa';
+        ctx.fillRect(s.x - 5, s.y - 14, 10, 4);
+        ctx.fillStyle = '#ffd24a';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y - 16, 2.2, 0, TAU);
+        ctx.fill();
+      } else {
+        // Farm plot: tilled rows.
+        ctx.fillStyle = 'hsl(30,42%,32%)';
+        ctx.fillRect(s.x - 7, s.y - 5, 14, 10);
+        ctx.fillStyle = 'hsl(96,40%,42%)';
+        for (let i = -1; i <= 1; i++) {
+          ctx.fillRect(s.x - 6, s.y + i * 3 - 1, 12, 1.2);
+        }
+      }
     }
   }
 

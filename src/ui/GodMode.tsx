@@ -28,6 +28,7 @@ const TOOLS: { id: GodTool; icon: string; label: string; hint: string }[] = [
   { id: 'food', icon: '🌾', label: 'Spawn food', hint: 'Click to drop a food cluster' },
   { id: 'kill', icon: '💀', label: 'Kill zone', hint: 'Drag to kill everything inside' },
   { id: 'spawn', icon: '🧬', label: 'Spawn creature', hint: 'Click to place a creature' },
+  { id: 'tribe', icon: '🛖', label: 'Found tribe', hint: 'Click to settle a humanoid tribe' },
 ];
 
 export function GodMode() {

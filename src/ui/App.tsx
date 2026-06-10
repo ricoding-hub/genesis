@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { ERA_ICONS } from '@/types';
 import { useStore } from '@/state/store';
+import { CivilizationPanel } from './CivilizationPanel';
 import { useIsMobile } from './useIsMobile';
 import { Dashboard } from './Dashboard';
 import { EventsPanel } from './EventsPanel';
@@ -28,8 +30,12 @@ function HUD() {
   const snapshot = useStore((s) => s.snapshot);
   const dashboardOpen = useStore((s) => s.dashboardOpen);
   const setDashboardOpen = useStore((s) => s.setDashboardOpen);
+  const civOpen = useStore((s) => s.civOpen);
+  const setCivOpen = useStore((s) => s.setCivOpen);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
   if (!snapshot) return null;
+  // Most advanced living tribe drives the civilization chip.
+  const topTribe = [...snapshot.tribes].sort((a, b) => b.era - a.era)[0];
   return (
     <div className="glass absolute top-2 md:top-3 left-1/2 -translate-x-1/2 px-2.5 md:px-4 py-1.5 md:py-2 flex items-center gap-2 md:gap-4 text-xs md:text-sm animate-fade-in max-w-[97vw] whitespace-nowrap">
       <DayNightIcon phase={snapshot.dayPhase} />
@@ -59,6 +65,14 @@ function HUD() {
         title="Evolution dashboard (D)"
       >
         📊<span className="hidden md:inline"> Stats</span>
+      </button>
+      <button
+        className={`btn ${civOpen ? 'btn-active' : ''}`}
+        onClick={() => setCivOpen(!civOpen)}
+        title="Civilization (C)"
+      >
+        {topTribe ? ERA_ICONS[topTribe.era] : '🏛️'}
+        <span className="hidden md:inline"> Civ</span>
       </button>
       <button
         className="btn hidden md:block"
@@ -141,6 +155,7 @@ function Help() {
     ['L', 'Open the Genetic Lab'],
     ['M', 'Toggle minimap'],
     ['D', 'Toggle evolution dashboard'],
+    ['C', 'Toggle civilization panel'],
     ['Esc', 'Deselect tool / close panels'],
   ];
   return (
@@ -180,6 +195,7 @@ export function App() {
       <TimeControls />
       <Minimap />
       <Dashboard />
+      <CivilizationPanel />
       <GeneticLab />
       <Inspector />
       <Toast />

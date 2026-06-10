@@ -111,6 +111,13 @@ function applyTool(screenX: number, screenY: number): void {
       if (!c) useStore.getState().showToast('Cannot spawn here (water or population cap)');
       break;
     }
+    case 'tribe': {
+      const ok = sim.spawnTribe(w.x, w.y);
+      useStore
+        .getState()
+        .showToast(ok ? 'A new tribe settles here 🛖' : 'Tribes need solid ground');
+      break;
+    }
     default:
       break;
   }
@@ -145,7 +152,7 @@ window.addEventListener('pointerdown', (e) => {
   if (tool === 'terraform' || tool === 'kill') {
     painting = true;
     applyTool(e.clientX, e.clientY);
-  } else if (tool === 'food' || tool === 'spawn') {
+  } else if (tool === 'food' || tool === 'spawn' || tool === 'tribe') {
     applyTool(e.clientX, e.clientY);
   } else {
     dragging = true;
@@ -278,9 +285,14 @@ window.addEventListener('keydown', (e) => {
     case 'D':
       store.setDashboardOpen(!store.dashboardOpen);
       break;
+    case 'c':
+    case 'C':
+      store.setCivOpen(!store.civOpen);
+      break;
     case 'Escape':
       store.setTool('none');
       store.setLabOpen(false);
+      store.setCivOpen(false);
       store.setHelpOpen(false);
       renderer.selected = null;
       store.setSelected(null);

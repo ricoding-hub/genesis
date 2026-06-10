@@ -99,7 +99,68 @@ export type GodTool =
   | 'terraform'
   | 'food'
   | 'kill'
-  | 'spawn';
+  | 'spawn'
+  | 'tribe';
+
+/** Technological/cultural ages a humanoid tribe advances through. */
+export enum Era {
+  Stone = 0,
+  Fire = 1,
+  Tools = 2,
+  Agriculture = 3,
+  Faith = 4,
+  Writing = 5,
+}
+
+export const ERA_NAMES: Record<Era, string> = {
+  [Era.Stone]: 'Stone Age',
+  [Era.Fire]: 'Age of Fire',
+  [Era.Tools]: 'Age of Tools',
+  [Era.Agriculture]: 'Agricultural Age',
+  [Era.Faith]: 'Age of Faith',
+  [Era.Writing]: 'Written Age',
+};
+
+export const ERA_ICONS: Record<Era, string> = {
+  [Era.Stone]: '🪨',
+  [Era.Fire]: '🔥',
+  [Era.Tools]: '🪓',
+  [Era.Agriculture]: '🌾',
+  [Era.Faith]: '⛩️',
+  [Era.Writing]: '📜',
+};
+
+export type StructureType = 'campfire' | 'shrine' | 'farm';
+
+export interface Structure {
+  id: number;
+  type: StructureType;
+  x: number;
+  y: number;
+  tribeId: number;
+  /** Animation/age phase in seconds. */
+  phase: number;
+}
+
+export interface CivMilestone {
+  t: number;
+  icon: string;
+  text: string;
+}
+
+export interface TribeInfo {
+  id: number;
+  name: string;
+  deity: string | null;
+  color: string;
+  era: Era;
+  /** Progress 0..1 toward the next era. */
+  eraProgress: number;
+  knowledge: number;
+  population: number;
+  explorers: number;
+  founded: number;
+}
 
 export type EventType = 'meteor' | 'iceage' | 'wildfire' | 'plague';
 
@@ -151,6 +212,8 @@ export interface StatsSnapshot {
   species: SpeciesInfo[];
   dominant: DominantSpecies | null;
   activeEvents: ActiveEventInfo[];
+  tribes: TribeInfo[];
+  civLog: CivMilestone[];
 }
 
 /** Inspector data for one selected creature. */
@@ -167,4 +230,9 @@ export interface CreatureInfo {
   speciesColor: string;
   archetype: string;
   children: number;
+  /** Civilization data — present only for humanoids in a tribe. */
+  tribeName: string | null;
+  tribeEra: Era | null;
+  deity: string | null;
+  explorer: boolean;
 }

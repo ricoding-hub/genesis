@@ -12,6 +12,7 @@
 
 - **Procedural world** — simplex-noise terrain with 7 biomes (ocean, shore, grassland, forest, desert, tundra, mountain), each with its own food rate, temperature and movement cost
 - **Pixel-art creature families** — every species is assigned a recognizable archetype from its genes (wolf, bear, deer, rabbit, bird, owl, lizard, beetle, humanoid), drawn as hand-crafted, walk-animated pixel sprites colorized by the species' evolving hue
+- **Human civilization** — when a humanoid species takes hold, the **Spark of Sapience** ignites and tribes rise *above* biology. They pool collective knowledge through communication, elders and "first-penguin" explorers, and climb the ages — **Stone → Fire → Tools → Agriculture → Faith → Writing** — visibly re-clothing their sprites at each era. Tribes build **campfires** (warmth at night + cooked food), **farms** (cultivated food), and **shrines** to a named **deity** they gather to worship. A Chronicle logs every milestone ("🔥 The Emberkin discovered Fire", "⛩️ Sunward raised a shrine to Aurel")
 - **Simulated DNA** — 10 genes per creature: speed, size, vision, color, diet spectrum, efficiency, reproduction threshold, mutation rate, lifespan, nocturnality
 - **Real natural selection** — crossover + mutation on reproduction; the environment decides who survives
 - **Speciation** — populations that drift genetically apart fork into visually distinct species, tracked on a phylogenetic timeline
@@ -60,6 +61,7 @@ npx gh-pages -d dist
 | `L` | Genetic Lab |
 | `M` | Minimap |
 | `D` | Evolution Dashboard |
+| `C` | Civilization panel |
 
 ## 🛠 Tech stack
 
@@ -78,6 +80,7 @@ src/
 │   ├── World.ts        # tile grid, biome generation, food, terraform, regrowth
 │   ├── Genetics.ts     # genome, crossover, mutation, presets
 │   ├── Sprites.ts      # pixel-art archetype templates + gene→family mapping
+│   ├── Culture.ts      # human civilization: tribes, eras, fire, faith, explorers
 │   ├── Creature.ts     # steering behaviors, energy model, lifecycle
 │   ├── Species.ts      # online clustering → speciation tracking
 │   ├── Events.ts       # meteor / ice age / wildfire / plague

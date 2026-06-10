@@ -1,12 +1,29 @@
 import { Biome, CreatureInfo, EventType, Genes, StatsSnapshot } from '@/types';
 import { clamp01, rand, TAU } from '@/utils/math';
 import { Creature } from './Creature';
+import { Culture } from './Culture';
 import { EventManager } from './Events';
 import { cloneGenes, crossover, geneDistance, mutate, randomGenes } from './Genetics';
 import { SpatialGrid } from './SpatialGrid';
 import { SpeciesTracker } from './Species';
 import { StatsCollector } from './Stats';
 import { Food, World, WORLD_H, WORLD_W } from './World';
+
+/** A genome that reliably maps to the humanoid archetype (high vision+efficiency). */
+export function humanoidGenes(): Genes {
+  return {
+    speed: rand(0.5, 0.7),
+    size: rand(0.4, 0.6),
+    vision: rand(0.78, 0.95),
+    hue: rand(0.05, 0.12), // warm skin tones
+    diet: rand(0.3, 0.5),
+    efficiency: rand(0.78, 0.95),
+    reproThreshold: rand(0.45, 0.6),
+    mutationRate: rand(0.15, 0.3),
+    lifespan: rand(0.6, 0.85),
+    nocturnal: rand(0.15, 0.4),
+  };
+}
 
 export const TICK = 1 / 30;
 const DAY_LENGTH = 90; // sim-seconds per full day/night cycle
@@ -34,6 +51,7 @@ export class Simulation {
   species = new SpeciesTracker();
   events = new EventManager();
   stats = new StatsCollector();
+  culture = new Culture();
 
   worldAge = 0;
   paused = false;
@@ -75,7 +93,8 @@ export class Simulation {
   seed(n: number): void {
     const clusters = Math.max(1, Math.round(n / 8));
     for (let k = 0; k < clusters; k++) {
-      const founder = randomGenes();
+      // Guarantee one humanoid-leaning founder cluster so civilization can rise.
+      const founder = k === 0 ? humanoidGenes() : randomGenes();
       const home = this.randomLandPosition();
       const members = Math.ceil(n / clusters);
       for (let i = 0; i < members; i++) {
@@ -138,8 +157,16 @@ export class Simulation {
     for (const f of this.world.foods) this.foodGrid.insert(f);
 
     // Update creatures.
+    const night = this.isNight;
+    const humanoids: Creature[] = [];
     for (const c of this.creatures) {
       if (c.dead) continue;
+      const isHuman = this.isHumanoid(c);
+      if (isHuman) humanoids.push(c);
+      // Civilization perks: tools speed foraging, fire cooks food.
+      const civFood =
+        (isHuman && c.tribeId >= 0 ? this.culture.toolBonus(c.tribeId) : 1) *
+        this.culture.cookingBonusAt(c.x, c.y);
       c.update(
         dt,
         this.world,
@@ -149,7 +176,7 @@ export class Simulation {
         (food, bite) => {
           const taken = Math.min(food.amount, bite);
           food.amount -= taken;
-          c.gainFromFood(taken);
+          c.gainFromFood(taken * civFood);
         },
         (prey, damage) => {
           prey.energy -= damage;
@@ -163,7 +190,15 @@ export class Simulation {
       // Standing in hazard (fire, shock zone) hurts.
       const hz = this.world.hazardAt(c.x, c.y);
       if (hz > 0) c.energy -= hz * 50 * dt;
+      // Warmth: a campfire staves off the cold of night.
+      if (night) {
+        const warmth = this.culture.warmthAt(c.x, c.y);
+        if (warmth > 0) c.energy = Math.min(c.maxEnergy, c.energy + warmth * 3.5 * dt);
+      }
     }
+
+    // Civilization layer: tribes, knowledge, eras, structures.
+    this.culture.update(dt, humanoids, this.creatureGrid, this.world, this.worldAge);
 
     // Reproduction pass.
     if (this.creatures.length < MAX_CREATURES) {
@@ -241,6 +276,12 @@ export class Simulation {
     const child = new Creature(x, y, genes, generation, [a.id, b.id]);
     child.energy = child.maxEnergy * 0.4;
     this.species.assign(child, this.worldAge, generation);
+    // Children are born into a parent's tribe; some become pioneers.
+    const parentTribe = a.tribeId >= 0 ? a.tribeId : b.tribeId;
+    if (parentTribe >= 0 && this.isHumanoid(child)) {
+      child.tribeId = parentTribe;
+      child.explorer = child.genes.vision > 0.62 && child.genes.speed > 0.55 && Math.random() < 0.18;
+    }
     this.creatures.push(child);
 
     const cost = 0.34;
@@ -255,10 +296,37 @@ export class Simulation {
     if (this.recentBirths.length < 40) this.recentBirths.push({ x, y });
   }
 
+  /** A creature whose species belongs to the humanoid archetype. */
+  isHumanoid(c: Creature): boolean {
+    return this.species.species[c.speciesId]?.archetype === 'humanoid';
+  }
+
   // ---------------- God mode API ----------------
 
   paintBiome(x: number, y: number, radius: number, biome: Biome): void {
     this.world.paintBiome(x, y, radius, biome);
+  }
+
+  /** Found a humanoid tribe at a point (God tool). */
+  spawnTribe(x: number, y: number): boolean {
+    if (!this.world.isWalkable(x, y)) return false;
+    const members: Creature[] = [];
+    for (let i = 0; i < 7 && this.creatures.length < MAX_CREATURES; i++) {
+      let px = x + rand(-40, 40);
+      let py = y + rand(-40, 40);
+      if (!this.world.isWalkable(px, py)) {
+        px = x;
+        py = y;
+      }
+      const c = new Creature(px, py, humanoidGenes(), this.stats.generation);
+      c.energy = c.maxEnergy * 0.85;
+      this.species.assign(c, this.worldAge, c.generation);
+      this.creatures.push(c);
+      members.push(c);
+    }
+    if (members.length === 0) return false;
+    this.culture.foundTribeAt(x, y, members, this.worldAge);
+    return true;
   }
 
   dropFood(x: number, y: number): void {
@@ -307,6 +375,7 @@ export class Simulation {
   }
 
   creatureInfo(c: Creature): CreatureInfo {
+    const tribe = c.tribeId >= 0 ? this.culture.tribe(c.tribeId) : undefined;
     return {
       id: c.id,
       genes: { ...c.genes },
@@ -320,6 +389,10 @@ export class Simulation {
       speciesColor: this.species.speciesColor(c.speciesId),
       archetype: this.species.species[c.speciesId]?.archetype ?? 'lizard',
       children: c.children,
+      tribeName: tribe?.name ?? null,
+      tribeEra: tribe ? this.culture.tribeEra(c.tribeId) : null,
+      deity: tribe?.deity ?? null,
+      explorer: c.explorer,
     };
   }
 
@@ -342,6 +415,8 @@ export class Simulation {
       species: this.species.species.map((s) => ({ ...s })),
       dominant: this.stats.dominant(this.creatures, this.species),
       activeEvents: this.events.infos(),
+      tribes: this.culture.tribeInfos(),
+      civLog: this.culture.log_(),
     };
   }
 }
