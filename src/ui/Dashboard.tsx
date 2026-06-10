@@ -11,19 +11,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '@/state/store';
-import { GeneHistogram, Genes, SpeciesInfo } from '@/types';
-
-const GENE_SHORT: Partial<Record<keyof Genes, string>> = {
-  speed: 'Speed',
-  size: 'Size',
-  vision: 'Vision',
-  diet: 'Diet',
-  efficiency: 'Efficiency',
-  mutationRate: 'Mutation',
-  lifespan: 'Lifespan',
-  nocturnal: 'Nocturnal',
-};
+import { GeneHistogram, SpeciesInfo } from '@/types';
 
 const tooltipStyle = {
   background: 'rgba(13,17,28,0.95)',
@@ -33,10 +23,11 @@ const tooltipStyle = {
 };
 
 function HistogramMini({ h }: { h: GeneHistogram }) {
+  const { t } = useTranslation();
   const data = h.buckets.map((count, i) => ({ bucket: (i / 10).toFixed(1), count }));
   return (
     <div>
-      <div className="text-[10px] text-slate-400 mb-0.5">{GENE_SHORT[h.gene] ?? h.gene}</div>
+      <div className="text-[10px] text-slate-400 mb-0.5">{t(`gene.${h.gene}`)}</div>
       <ResponsiveContainer width="100%" height={52}>
         <BarChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
           <Bar dataKey="count" fill="#34d399" radius={[2, 2, 0, 0]} isAnimationActive={false} />
@@ -50,11 +41,12 @@ function HistogramMini({ h }: { h: GeneHistogram }) {
 }
 
 function DominantCard() {
+  const { t } = useTranslation();
   const snapshot = useStore((s) => s.snapshot);
   const d = snapshot?.dominant;
   if (!d) return null;
   const g = d.avgGenes;
-  const traits: [string, number][] = [
+  const traits: [keyof typeof g, number][] = [
     ['speed', g.speed],
     ['size', g.size],
     ['vision', g.vision],
@@ -64,19 +56,21 @@ function DominantCard() {
   ];
   return (
     <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-      <div className="panel-title mb-2">Dominant species</div>
+      <div className="panel-title mb-2">{t('dashboard.dominant')}</div>
       <div className="flex items-center gap-2 mb-2">
         <span
           className="w-4 h-4 rounded-full inline-block border border-white/30"
           style={{ background: d.color }}
         />
-        <span className="text-sm font-semibold">Species #{d.id}</span>
-        <span className="text-xs text-slate-400 ml-auto font-mono">{d.population} alive</span>
+        <span className="text-sm font-semibold">{t('dashboard.speciesN', { id: d.id })}</span>
+        <span className="text-xs text-slate-400 ml-auto font-mono">
+          {t('dashboard.aliveN', { n: d.population })}
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
         {traits.map(([name, v]) => (
           <div key={name} className="flex items-center gap-1.5">
-            <span className="text-[10px] text-slate-400 w-14 capitalize">{name}</span>
+            <span className="text-[10px] text-slate-400 w-14">{t(`gene.${name}`)}</span>
             <div className="flex-1 h-1 rounded bg-white/10">
               <div
                 className="h-full rounded"
@@ -91,13 +85,14 @@ function DominantCard() {
 }
 
 function SpeciationTimeline({ species }: { species: SpeciesInfo[] }) {
+  const { t } = useTranslation();
   const recent = [...species]
     .sort((a, b) => b.bornAt - a.bornAt)
     .slice(0, 8);
   if (recent.length === 0) return null;
   return (
     <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-      <div className="panel-title mb-2">Phylogenetic timeline</div>
+      <div className="panel-title mb-2">{t('dashboard.phylo')}</div>
       <div className="flex flex-col gap-1">
         {recent.map((s) => (
           <div key={s.id} className="flex items-center gap-2 text-[11px]">
@@ -106,13 +101,15 @@ function SpeciationTimeline({ species }: { species: SpeciesInfo[] }) {
               style={{ background: s.color, opacity: s.extinct ? 0.35 : 1 }}
             />
             <span className={s.extinct ? 'text-slate-500 line-through' : 'text-slate-300'}>
-              Species #{s.id}
+              {t('dashboard.speciesN', { id: s.id })}
             </span>
             <span className="text-slate-500">
-              {s.parentId >= 0 ? `← split from #${s.parentId}` : '· genesis seed'}
+              {s.parentId >= 0
+                ? t('dashboard.splitFrom', { id: s.parentId })
+                : t('dashboard.genesisSeed')}
             </span>
             <span className="text-slate-500 font-mono ml-auto">
-              gen {s.bornGeneration}
+              {t('dashboard.genShort', { n: s.bornGeneration })}
               {s.extinct ? ' †' : ` · ${s.population}`}
             </span>
           </div>
@@ -123,6 +120,7 @@ function SpeciationTimeline({ species }: { species: SpeciesInfo[] }) {
 }
 
 export function Dashboard() {
+  const { t } = useTranslation();
   const open = useStore((s) => s.dashboardOpen);
   const setOpen = useStore((s) => s.setDashboardOpen);
   const snapshot = useStore((s) => s.snapshot);
@@ -136,7 +134,7 @@ export function Dashboard() {
   return (
     <div className="glass absolute left-3 top-16 bottom-20 w-[400px] max-md:left-2 max-md:right-2 max-md:top-12 max-md:bottom-16 max-md:w-auto p-4 overflow-y-auto thin-scroll animate-slide-up">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">📊 Evolution Dashboard</h2>
+        <h2 className="text-sm font-semibold">📊 {t('dashboard.title')}</h2>
         <button className="btn" onClick={() => setOpen(false)}>
           ✕
         </button>
@@ -144,19 +142,21 @@ export function Dashboard() {
 
       <div className="grid grid-cols-4 gap-2 mb-4 text-center">
         {[
-          ['Generation', snapshot.generation],
-          ['Population', snapshot.population],
-          ['Births', snapshot.births],
-          ['Deaths', snapshot.deaths],
+          ['dashboard.generation', snapshot.generation],
+          ['dashboard.population', snapshot.population],
+          ['dashboard.births', snapshot.births],
+          ['dashboard.deaths', snapshot.deaths],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg bg-white/5 border border-white/10 py-2">
             <div className="text-base font-bold font-mono text-emerald-300">{value}</div>
-            <div className="text-[9px] uppercase tracking-wider text-slate-400">{label}</div>
+            <div className="text-[9px] uppercase tracking-wider text-slate-400">
+              {t(label as string)}
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="panel-title mb-1">Population over time</div>
+      <div className="panel-title mb-1">{t('dashboard.popOverTime')}</div>
       <ResponsiveContainer width="100%" height={140}>
         <LineChart data={snapshot.popSeries} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
           <CartesianGrid stroke="rgba(255,255,255,0.06)" />
@@ -185,7 +185,7 @@ export function Dashboard() {
         </LineChart>
       </ResponsiveContainer>
 
-      <div className="panel-title mt-3 mb-1">Diversity index</div>
+      <div className="panel-title mt-3 mb-1">{t('dashboard.diversity')}</div>
       <ResponsiveContainer width="100%" height={80}>
         <AreaChart
           data={snapshot.diversitySeries}
@@ -203,7 +203,7 @@ export function Dashboard() {
         </AreaChart>
       </ResponsiveContainer>
 
-      <div className="panel-title mt-3 mb-2">Gene distribution</div>
+      <div className="panel-title mt-3 mb-2">{t('dashboard.geneDistribution')}</div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
         {snapshot.histograms.map((h) => (
           <HistogramMini key={h.gene} h={h} />

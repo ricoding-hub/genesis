@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/engine/engine';
 import { useStore } from '@/state/store';
 import { Biome } from '@/types';
@@ -9,6 +10,7 @@ const MAP_W = 220;
 const MAP_H = 150;
 
 export function Minimap() {
+  const { t: tt } = useTranslation();
   const visible = useStore((s) => s.minimapVisible);
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -84,7 +86,7 @@ export function Minimap() {
         height={MAP_H}
         className="rounded-lg cursor-pointer block max-md:w-[132px] max-md:h-auto"
         style={{ pointerEvents: 'auto' }}
-        title="Click to jump"
+        title={tt('minimap.jump')}
         onPointerDown={(e) => {
           const { camera } = getEngine();
           const rect = e.currentTarget.getBoundingClientRect();

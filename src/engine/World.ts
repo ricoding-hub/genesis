@@ -1,5 +1,5 @@
 import { Biome, BiomeParams } from '@/types';
-import { SimplexNoise } from '@/utils/noise';
+import { mulberry32, SimplexNoise } from '@/utils/noise';
 import { clamp01, rand } from '@/utils/math';
 
 export const TILE_SIZE = 16;
@@ -17,6 +17,10 @@ export const BIOME_PARAMS: Record<Biome, BiomeParams> = {
   [Biome.Tundra]: { foodRate: 0.001, temperature: 0.12, moveCost: 1.35, walkable: true },
   [Biome.Mountain]: { foodRate: 0.0008, temperature: 0.25, moveCost: 1.9, walkable: true },
   [Biome.Wasteland]: { foodRate: 0.0001, temperature: 0.65, moveCost: 1.2, walkable: true },
+  [Biome.Jungle]: { foodRate: 0.0072, temperature: 0.8, moveCost: 1.4, walkable: true },
+  [Biome.Swamp]: { foodRate: 0.0042, temperature: 0.62, moveCost: 1.7, walkable: true },
+  [Biome.River]: { foodRate: 0.002, temperature: 0.5, moveCost: 2.6, walkable: false },
+  [Biome.Savanna]: { foodRate: 0.0028, temperature: 0.78, moveCost: 1.0, walkable: true },
 };
 
 export interface Food {
@@ -38,8 +42,11 @@ export class World {
   readonly rows = WORLD_ROWS;
   readonly biomes: Uint8Array;
   readonly elevation: Float32Array;
+  readonly moisture: Float32Array;
   /** Per-tile hazard level (fire, meteor shock). Creatures steer away from it. */
   readonly hazard: Float32Array;
+  /** God-built walls: 1 = impassable barrier. */
+  readonly walls: Uint8Array;
   /** Per-tile temperature offset applied by events (ice age). */
   globalTempShift = 0;
   /** Tiles flagged for slow regeneration back to their pre-disaster biome. */
@@ -58,7 +65,9 @@ export class World {
   constructor(seed = (Math.random() * 1e9) | 0) {
     this.biomes = new Uint8Array(this.cols * this.rows);
     this.elevation = new Float32Array(this.cols * this.rows);
+    this.moisture = new Float32Array(this.cols * this.rows);
     this.hazard = new Float32Array(this.cols * this.rows);
+    this.walls = new Uint8Array(this.cols * this.rows);
     this.generate(seed);
   }
 
@@ -95,9 +104,11 @@ export class World {
         );
 
         this.elevation[i] = e;
+        this.moisture[i] = m;
         this.biomes[i] = this.classify(e, m, t);
       }
     }
+    this.carveRivers(seed);
     this.terrainVersion++;
   }
 
@@ -106,9 +117,69 @@ export class World {
     if (e < 0.385) return Biome.Shore;
     if (e > 0.72) return Biome.Mountain;
     if (t < 0.3) return Biome.Tundra;
-    if (t > 0.72 && m < 0.42) return Biome.Desert;
+    // Hot + very wet lowlands → lush jungle; hot + dry → desert; hot + mid → savanna.
+    if (t > 0.78 && m > 0.6) return Biome.Jungle;
+    if (t > 0.72 && m < 0.4) return Biome.Desert;
+    if (t > 0.66 && m < 0.55) return Biome.Savanna;
+    // Low, wet, warm ground turns to swamp.
+    if (e < 0.45 && m > 0.66 && t > 0.4) return Biome.Swamp;
     if (m > 0.52) return Biome.Forest;
     return Biome.Grassland;
+  }
+
+  /**
+   * Carve a few rivers: start near mountain peaks and follow the steepest
+   * downhill path to the sea, widening as they descend. Adds freshwater
+   * diversity and natural barriers.
+   */
+  private carveRivers(seed: number): void {
+    const rng = mulberry32(seed ^ 0x5bd1e995);
+    const peaks: number[] = [];
+    for (let i = 0; i < this.biomes.length; i++) {
+      if (this.elevation[i] > 0.74 && rng() < 0.06) peaks.push(i);
+    }
+    const rivers = Math.min(6, peaks.length);
+    for (let p = 0; p < rivers; p++) {
+      let i = peaks[(rng() * peaks.length) | 0];
+      let steps = 0;
+      let width = 0;
+      while (steps++ < 400) {
+        const c = i % this.cols;
+        const r = (i / this.cols) | 0;
+        const e = this.elevation[i];
+        if ((this.biomes[i] as Biome) === Biome.Ocean) break;
+        // Lay river over this tile and optionally a neighbour as it widens.
+        width = Math.min(2, width + (steps % 60 === 0 ? 1 : 0));
+        for (let dr = 0; dr <= width; dr++) {
+          for (let dc = 0; dc <= width; dc++) {
+            const rr = r + dr;
+            const cc = c + dc;
+            if (cc < 0 || rr < 0 || cc >= this.cols || rr >= this.rows) continue;
+            const j = rr * this.cols + cc;
+            if ((this.biomes[j] as Biome) !== Biome.Mountain) this.biomes[j] = Biome.River;
+          }
+        }
+        // Pick the lowest of the 8 neighbours (with a little noise).
+        let best = -1;
+        let bestE = e;
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const rr = r + dr;
+            const cc = c + dc;
+            if (cc < 0 || rr < 0 || cc >= this.cols || rr >= this.rows) continue;
+            const j = rr * this.cols + cc;
+            const je = this.elevation[j] + (rng() - 0.5) * 0.02;
+            if (je < bestE) {
+              bestE = je;
+              best = j;
+            }
+          }
+        }
+        if (best < 0) break; // local minimum → inland lake mouth
+        i = best;
+      }
+    }
   }
 
   tileIndexAt(x: number, y: number): number {
@@ -131,7 +202,55 @@ export class World {
 
   isWalkable(x: number, y: number): boolean {
     if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) return false;
-    return this.paramsAt(x, y).walkable;
+    const i = this.tileIndexAt(x, y);
+    if (this.walls[i]) return false;
+    return BIOME_PARAMS[this.biomes[i] as Biome].walkable;
+  }
+
+  wallAt(x: number, y: number): boolean {
+    if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) return false;
+    return this.walls[this.tileIndexAt(x, y)] === 1;
+  }
+
+  /** Paint (set=1) or erase (set=0) a circular brush of wall tiles. */
+  paintWall(x: number, y: number, radius: number, set: boolean): void {
+    const c0 = Math.floor((x - radius) / TILE_SIZE);
+    const c1 = Math.ceil((x + radius) / TILE_SIZE);
+    const r0 = Math.floor((y - radius) / TILE_SIZE);
+    const r1 = Math.ceil((y + radius) / TILE_SIZE);
+    const r2 = radius * radius;
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) continue;
+        const tx = c * TILE_SIZE + TILE_SIZE / 2;
+        const ty = r * TILE_SIZE + TILE_SIZE / 2;
+        const dx = tx - x;
+        const dy = ty - y;
+        if (dx * dx + dy * dy > r2) continue;
+        this.walls[r * this.cols + c] = set ? 1 : 0;
+      }
+    }
+    this.terrainVersion++;
+  }
+
+  /** Build a vertical wall down a world-x with an optional gap (gate). */
+  buildVerticalWall(worldX: number, gateCenterY = -1, gateHalf = 0): void {
+    const col = Math.round(worldX / TILE_SIZE);
+    for (let thick = 0; thick < 2; thick++) {
+      const c = col + thick;
+      if (c < 0 || c >= this.cols) continue;
+      for (let r = 0; r < this.rows; r++) {
+        const wy = r * TILE_SIZE;
+        if (gateHalf > 0 && Math.abs(wy - gateCenterY) < gateHalf) continue;
+        this.walls[r * this.cols + c] = 1;
+      }
+    }
+    this.terrainVersion++;
+  }
+
+  clearWalls(): void {
+    this.walls.fill(0);
+    this.terrainVersion++;
   }
 
   hazardAt(x: number, y: number): number {

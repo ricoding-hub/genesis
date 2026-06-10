@@ -1,11 +1,15 @@
-import { Biome, BIOME_NAMES, GodTool } from '@/types';
+import { useTranslation } from 'react-i18next';
+import { Biome, BIOME_KEYS, CohortProfile, CohortSex, GodTool } from '@/types';
 import { useStore } from '@/state/store';
 import { useIsMobile } from './useIsMobile';
 
 const PAINTABLE: Biome[] = [
   Biome.Grassland,
   Biome.Forest,
+  Biome.Jungle,
+  Biome.Savanna,
   Biome.Desert,
+  Biome.Swamp,
   Biome.Tundra,
   Biome.Mountain,
   Biome.Shore,
@@ -21,17 +25,38 @@ const BIOME_SWATCH: Record<number, string> = {
   [Biome.Tundra]: '#cedae2',
   [Biome.Mountain]: '#76706e',
   [Biome.Wasteland]: '#483a34',
+  [Biome.Jungle]: '#1e582c',
+  [Biome.Swamp]: '#40543e',
+  [Biome.River]: '#2860a0',
+  [Biome.Savanna]: '#a89e58',
 };
 
-const TOOLS: { id: GodTool; icon: string; label: string; hint: string }[] = [
-  { id: 'terraform', icon: '🏔', label: 'Terraform', hint: 'Drag to paint biomes' },
-  { id: 'food', icon: '🌾', label: 'Spawn food', hint: 'Click to drop a food cluster' },
-  { id: 'kill', icon: '💀', label: 'Kill zone', hint: 'Drag to kill everything inside' },
-  { id: 'spawn', icon: '🧬', label: 'Spawn creature', hint: 'Click to place a creature' },
-  { id: 'tribe', icon: '🛖', label: 'Found tribe', hint: 'Click to settle a humanoid tribe' },
+/** id, icon, and the i18n key roots (god.<key>, god.<key>Hint). */
+const TOOLS: { id: GodTool; icon: string; key: string }[] = [
+  { id: 'terraform', icon: '🏔', key: 'terraform' },
+  { id: 'food', icon: '🌾', key: 'food' },
+  { id: 'kill', icon: '💀', key: 'kill' },
+  { id: 'spawn', icon: '🧬', key: 'spawn' },
+  { id: 'tribe', icon: '🛖', key: 'tribe' },
+  { id: 'humans', icon: '👥', key: 'humans' },
+  { id: 'wall', icon: '🧱', key: 'wall' },
+  { id: 'gate', icon: '🚪', key: 'gate' },
+  { id: 'bless', icon: '🌟', key: 'bless' },
+  { id: 'smite', icon: '⚡', key: 'smite' },
 ];
 
+const COHORT_SEXES: CohortSex[] = ['mixed', 'M', 'F'];
+const COHORT_PROFILES: CohortProfile[] = ['balanced', 'smart', 'strong', 'nocturnal'];
+const SEX_LABEL: Record<CohortSex, string> = { mixed: 'sexMixed', M: 'sexMale', F: 'sexFemale' };
+const PROFILE_LABEL: Record<CohortProfile, string> = {
+  balanced: 'profileBalanced',
+  smart: 'profileSmart',
+  strong: 'profileStrong',
+  nocturnal: 'profileNocturnal',
+};
+
 export function GodMode() {
+  const { t } = useTranslation();
   const open = useStore((s) => s.godModeOpen);
   const toggle = useStore((s) => s.toggleGodMode);
   const tool = useStore((s) => s.tool);
@@ -42,6 +67,12 @@ export function GodMode() {
   const setBrushRadius = useStore((s) => s.setBrushRadius);
   const setLabOpen = useStore((s) => s.setLabOpen);
   const setSpawnGenes = useStore((s) => s.setSpawnGenes);
+  const cohortSex = useStore((s) => s.cohortSex);
+  const setCohortSex = useStore((s) => s.setCohortSex);
+  const cohortCount = useStore((s) => s.cohortCount);
+  const setCohortCount = useStore((s) => s.setCohortCount);
+  const cohortProfile = useStore((s) => s.cohortProfile);
+  const setCohortProfile = useStore((s) => s.setCohortProfile);
   const isMobile = useIsMobile();
 
   return (
@@ -57,50 +88,48 @@ export function GodMode() {
           open ? 'text-amber-300' : 'text-slate-300 hover:text-white'
         }`}
         onClick={toggle}
-        title="Toggle God Mode (G)"
+        title={t('god.toggle')}
         style={{ pointerEvents: 'auto' }}
       >
-        ⚡{!isMobile && ' God Mode'}
+        ⚡{!isMobile && ` ${t('god.title')}`}
       </button>
 
       {open && (
-        <div className="glass p-2.5 flex flex-col gap-1.5 w-48 animate-slide-up max-h-[55vh] overflow-y-auto thin-scroll">
-          {TOOLS.map((t) => (
+        <div className="glass p-2.5 flex flex-col gap-1.5 w-48 animate-slide-up max-h-[62vh] overflow-y-auto thin-scroll">
+          {TOOLS.map((tl) => (
             <button
-              key={t.id}
-              className={`btn text-left flex items-center gap-2 ${tool === t.id ? 'btn-active' : ''}`}
-              onClick={() => setTool(tool === t.id ? 'none' : t.id)}
-              title={t.hint}
+              key={tl.id}
+              className={`btn text-left flex items-center gap-2 ${tool === tl.id ? 'btn-active' : ''}`}
+              onClick={() => setTool(tool === tl.id ? 'none' : tl.id)}
+              title={t(`god.${tl.key}Hint`)}
             >
-              <span>{t.icon}</span>
-              <span>{t.label}</span>
+              <span>{tl.icon}</span>
+              <span>{t(`god.${tl.key}`)}</span>
             </button>
           ))}
 
           {tool === 'terraform' && (
             <div className="mt-1 border-t border-white/10 pt-2">
-              <div className="panel-title mb-1.5">Paint biome</div>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="panel-title mb-1.5">{t('god.paintBiome')}</div>
+              <div className="grid grid-cols-5 gap-1.5">
                 {PAINTABLE.map((b) => (
                   <button
                     key={b}
                     className={`h-7 rounded-md border transition-transform ${
-                      brushBiome === b
-                        ? 'border-white scale-110'
-                        : 'border-white/15 hover:scale-105'
+                      brushBiome === b ? 'border-white scale-110' : 'border-white/15 hover:scale-105'
                     }`}
                     style={{ background: BIOME_SWATCH[b], pointerEvents: 'auto' }}
                     onClick={() => setBrushBiome(b)}
-                    title={BIOME_NAMES[b]}
+                    title={t(`biome.${BIOME_KEYS[b]}`)}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {(tool === 'terraform' || tool === 'kill') && (
+          {(tool === 'terraform' || tool === 'kill' || tool === 'wall' || tool === 'gate') && (
             <div className="mt-1">
-              <div className="panel-title mb-1">Brush size</div>
+              <div className="panel-title mb-1">{t('god.brushSize')}</div>
               <input
                 type="range"
                 min={25}
@@ -115,20 +144,59 @@ export function GodMode() {
 
           {tool === 'spawn' && (
             <div className="mt-1 border-t border-white/10 pt-2 flex flex-col gap-1.5">
-              <button
-                className="btn"
-                onClick={() => setSpawnGenes(null)}
-                title="Each click spawns a creature with random DNA"
-              >
-                🎲 Random DNA
+              <button className="btn" onClick={() => setSpawnGenes(null)} title={t('god.randomDNAHint')}>
+                🎲 {t('god.randomDNA')}
               </button>
-              <button
-                className="btn"
-                onClick={() => setLabOpen(true)}
-                title="Design a genome in the Genetic Lab (L)"
-              >
-                🧪 Open Genetic Lab
+              <button className="btn" onClick={() => setLabOpen(true)} title={t('god.openLabHint')}>
+                🧪 {t('god.openLab')}
               </button>
+            </div>
+          )}
+
+          {tool === 'humans' && (
+            <div className="mt-1 border-t border-white/10 pt-2 flex flex-col gap-2">
+              <div>
+                <div className="panel-title mb-1">{t('god.cohortSex')}</div>
+                <div className="grid grid-cols-3 gap-1">
+                  {COHORT_SEXES.map((s) => (
+                    <button
+                      key={s}
+                      className={`btn !px-1 text-[10px] ${cohortSex === s ? 'btn-active' : ''}`}
+                      onClick={() => setCohortSex(s)}
+                    >
+                      {t(`god.${SEX_LABEL[s]}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="panel-title mb-1">{t('god.cohortProfile')}</div>
+                <div className="grid grid-cols-2 gap-1">
+                  {COHORT_PROFILES.map((p) => (
+                    <button
+                      key={p}
+                      className={`btn !px-1 text-[10px] ${cohortProfile === p ? 'btn-active' : ''}`}
+                      onClick={() => setCohortProfile(p)}
+                    >
+                      {t(`god.${PROFILE_LABEL[p]}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="panel-title mb-1">
+                  {t('god.cohortCount')}: {cohortCount}
+                </div>
+                <input
+                  type="range"
+                  min={2}
+                  max={30}
+                  value={cohortCount}
+                  onChange={(e) => setCohortCount(Number(e.target.value))}
+                  className="w-full"
+                  style={{ pointerEvents: 'auto' }}
+                />
+              </div>
             </div>
           )}
         </div>

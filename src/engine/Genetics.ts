@@ -46,6 +46,41 @@ export function randomGenes(): Genes {
   };
 }
 
+/** Genes for a manual cohort profile (God tool "Human cohort"). */
+export function cohortGenes(profile: 'balanced' | 'smart' | 'strong' | 'nocturnal'): Genes {
+  const base: Genes = {
+    speed: rand(0.5, 0.7),
+    size: rand(0.4, 0.6),
+    vision: rand(0.78, 0.95),
+    hue: rand(0.05, 0.12),
+    diet: rand(0.3, 0.5),
+    efficiency: rand(0.78, 0.95),
+    reproThreshold: rand(0.45, 0.6),
+    mutationRate: rand(0.15, 0.3),
+    lifespan: rand(0.6, 0.85),
+    nocturnal: rand(0.15, 0.4),
+  };
+  switch (profile) {
+    case 'smart':
+      base.vision = rand(0.88, 0.98);
+      base.efficiency = rand(0.88, 0.98);
+      base.size = rand(0.3, 0.45);
+      break;
+    case 'strong':
+      base.size = rand(0.72, 0.92);
+      base.speed = rand(0.72, 0.92);
+      base.diet = rand(0.45, 0.65);
+      break;
+    case 'nocturnal':
+      base.nocturnal = rand(0.85, 0.98);
+      base.vision = rand(0.85, 0.97);
+      break;
+    default:
+      break;
+  }
+  return base;
+}
+
 export function cloneGenes(g: Genes): Genes {
   return { ...g };
 }

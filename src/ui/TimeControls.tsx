@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/engine/engine';
 import type { SimSpeed } from '@/engine/Simulation';
 import { useStore } from '@/state/store';
@@ -6,6 +7,7 @@ const SPEEDS: SimSpeed[] = [1, 2, 5, 10];
 
 export function TimeControls() {
   const snapshot = useStore((s) => s.snapshot);
+  const { t } = useTranslation();
   if (!snapshot) return null;
   const { sim } = getEngine();
 
@@ -16,7 +18,7 @@ export function TimeControls() {
         onClick={() => {
           sim.paused = !sim.paused;
         }}
-        title="Pause / play (Space)"
+        title={t('controls.pausePlay')}
       >
         {snapshot.paused ? '▶' : '⏸'}
       </button>
@@ -26,9 +28,9 @@ export function TimeControls() {
           sim.paused = true;
           sim.stepOnce();
         }}
-        title="Step one tick (.)"
+        title={t('controls.stepTitle')}
       >
-        ⏭<span className="hidden md:inline"> step</span>
+        ⏭<span className="hidden md:inline"> {t('controls.step')}</span>
       </button>
       <div className="w-px h-5 bg-white/10 mx-1" />
       {SPEEDS.map((sp) => (
@@ -39,7 +41,7 @@ export function TimeControls() {
             sim.speed = sp;
             sim.paused = false;
           }}
-          title={`Run at ${sp}x speed`}
+          title={t('controls.speed', { n: sp })}
         >
           {sp}x
         </button>

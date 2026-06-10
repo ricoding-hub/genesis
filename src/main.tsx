@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
+import i18n from './i18n';
 import { createEngine } from './engine/engine';
 import { debugSheet } from './engine/Sprites';
 import { useStore } from './state/store';
@@ -93,8 +94,13 @@ function pinchInfo(): { cx: number; cy: number; d: number } | null {
   };
 }
 
+function toast(key: string, params?: Record<string, string | number>): void {
+  useStore.getState().showToast(i18n.t(key, params));
+}
+
 function applyTool(screenX: number, screenY: number): void {
-  const { tool, brushBiome, brushRadius, spawnGenes } = useStore.getState();
+  const st = useStore.getState();
+  const { tool, brushBiome, brushRadius, spawnGenes } = st;
   const w = camera.screenToWorld(screenX, screenY);
   switch (tool) {
     case 'terraform':
@@ -106,16 +112,39 @@ function applyTool(screenX: number, screenY: number): void {
     case 'kill':
       sim.killZone(w.x, w.y, brushRadius);
       break;
+    case 'wall':
+      sim.paintWall(w.x, w.y, brushRadius * 0.5);
+      break;
+    case 'gate':
+      sim.eraseWall(w.x, w.y, brushRadius * 0.5);
+      break;
     case 'spawn': {
       const c = sim.spawnCreature(w.x, w.y, spawnGenes ?? undefined);
-      if (!c) useStore.getState().showToast('Cannot spawn here (water or population cap)');
+      if (!c) toast('toast.cannotSpawn');
       break;
     }
     case 'tribe': {
       const ok = sim.spawnTribe(w.x, w.y);
-      useStore
-        .getState()
-        .showToast(ok ? 'A new tribe settles here 🛖' : 'Tribes need solid ground');
+      toast(ok ? 'toast.tribeSettled' : 'toast.tribeNoGround');
+      break;
+    }
+    case 'humans': {
+      const ok = sim.spawnCohort(w.x, w.y, {
+        count: st.cohortCount,
+        sex: st.cohortSex,
+        profile: st.cohortProfile,
+      });
+      toast(ok ? 'toast.cohortPlaced' : 'toast.tribeNoGround');
+      break;
+    }
+    case 'bless': {
+      const name = sim.bless(w.x, w.y);
+      toast(name ? 'toast.praiseHarvest' : 'toast.blessed', name ? { tribe: name } : undefined);
+      break;
+    }
+    case 'smite': {
+      const name = sim.smite(w.x, w.y);
+      toast(name ? 'toast.fearWrath' : 'toast.smote', name ? { tribe: name } : undefined);
       break;
     }
     default:
@@ -149,10 +178,17 @@ window.addEventListener('pointerdown', (e) => {
   const { tool } = useStore.getState();
   lastPointer = { x: e.clientX, y: e.clientY };
   movedSinceDown = 0;
-  if (tool === 'terraform' || tool === 'kill') {
+  if (tool === 'terraform' || tool === 'kill' || tool === 'wall' || tool === 'gate') {
     painting = true;
     applyTool(e.clientX, e.clientY);
-  } else if (tool === 'food' || tool === 'spawn' || tool === 'tribe') {
+  } else if (
+    tool === 'food' ||
+    tool === 'spawn' ||
+    tool === 'tribe' ||
+    tool === 'humans' ||
+    tool === 'bless' ||
+    tool === 'smite'
+  ) {
     applyTool(e.clientX, e.clientY);
   } else {
     dragging = true;
@@ -248,21 +284,21 @@ window.addEventListener('keydown', (e) => {
     case ' ':
       e.preventDefault();
       sim.paused = !sim.paused;
-      store.showToast(sim.paused ? 'Paused' : 'Running');
+      store.showToast(i18n.t(sim.paused ? 'controls.paused' : 'controls.running'));
       break;
     case '+':
     case '=': {
       const i = SPEEDS.indexOf(sim.speed);
       sim.speed = SPEEDS[Math.min(SPEEDS.length - 1, i + 1)];
       sim.paused = false;
-      store.showToast(`Speed ${sim.speed}x`);
+      store.showToast(i18n.t('controls.speed', { n: sim.speed }));
       break;
     }
     case '-':
     case '_': {
       const i = SPEEDS.indexOf(sim.speed);
       sim.speed = SPEEDS[Math.max(0, i - 1)];
-      store.showToast(`Speed ${sim.speed}x`);
+      store.showToast(i18n.t('controls.speed', { n: sim.speed }));
       break;
     }
     case '.':

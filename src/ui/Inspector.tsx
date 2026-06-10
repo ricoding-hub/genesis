@@ -1,20 +1,31 @@
+import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/engine/engine';
 import { useStore } from '@/state/store';
-import { ERA_ICONS, ERA_NAMES, Genes } from '@/types';
+import { ERA_ICONS, Era, Genes } from '@/types';
 
-const TRAITS: { key: keyof Genes; label: string }[] = [
-  { key: 'speed', label: 'Speed' },
-  { key: 'size', label: 'Size' },
-  { key: 'vision', label: 'Vision' },
-  { key: 'diet', label: 'Diet' },
-  { key: 'efficiency', label: 'Efficiency' },
-  { key: 'reproThreshold', label: 'Repro thr.' },
-  { key: 'mutationRate', label: 'Mutation' },
-  { key: 'lifespan', label: 'Lifespan' },
-  { key: 'nocturnal', label: 'Nocturnal' },
+const TRAITS: (keyof Genes)[] = [
+  'speed',
+  'size',
+  'vision',
+  'diet',
+  'efficiency',
+  'reproThreshold',
+  'mutationRate',
+  'lifespan',
+  'nocturnal',
 ];
 
+const ERA_KEYS: Record<Era, string> = {
+  [Era.Stone]: 'stone',
+  [Era.Fire]: 'fire',
+  [Era.Tools]: 'tools',
+  [Era.Agriculture]: 'agriculture',
+  [Era.Faith]: 'faith',
+  [Era.Writing]: 'writing',
+};
+
 export function Inspector() {
+  const { t } = useTranslation();
   const info = useStore((s) => s.selected);
   const setSelected = useStore((s) => s.setSelected);
   if (!info) return null;
@@ -29,8 +40,8 @@ export function Inspector() {
           className="w-3.5 h-3.5 rounded-full border border-white/30"
           style={{ background: info.speciesColor }}
         />
-        <span className="text-xs font-semibold capitalize">
-          {info.archetype} #{info.id} · sp.{info.speciesId}
+        <span className="text-xs font-semibold">
+          {t(`archetype.${info.archetype}`)} {info.sex === 'M' ? '♂' : '♀'} #{info.id}
         </span>
         <button
           className="btn ml-auto !px-1.5 !py-0.5"
@@ -44,9 +55,9 @@ export function Inspector() {
       </div>
 
       <div className="text-[10px] text-slate-400 mb-2 flex gap-3">
-        <span className="capitalize">{info.stage}</span>
-        <span>gen {info.generation}</span>
-        <span>{info.children} offspring</span>
+        <span>{t(`stage.${info.stage}`)}</span>
+        <span>{t('inspector.gen', { n: info.generation })}</span>
+        <span>{t('inspector.offspring', { n: info.children })}</span>
       </div>
 
       {info.tribeName && (
@@ -54,16 +65,18 @@ export function Inspector() {
           <span className="text-amber-200">{info.tribeName}</span>
           {info.tribeEra !== null && (
             <span className="text-slate-300">
-              {ERA_ICONS[info.tribeEra]} {ERA_NAMES[info.tribeEra]}
+              {ERA_ICONS[info.tribeEra]} {t(`era.${ERA_KEYS[info.tribeEra]}`)}
             </span>
           )}
-          {info.deity && <span className="text-slate-400">⛩️ worships {info.deity}</span>}
-          {info.explorer && <span className="text-sky-300">🚩 explorer</span>}
+          {info.deity && (
+            <span className="text-slate-400">⛩️ {t('inspector.worships', { deity: info.deity })}</span>
+          )}
+          {info.explorer && <span className="text-sky-300">🚩 {t('inspector.explorer')}</span>}
         </div>
       )}
 
       <div className="mb-1 text-[10px] text-slate-400 flex justify-between">
-        <span>Energy</span>
+        <span>{t('inspector.energy')}</span>
         <span className="font-mono">{energyPct}%</span>
       </div>
       <div className="h-1.5 rounded bg-white/10 mb-2">
@@ -73,7 +86,7 @@ export function Inspector() {
         />
       </div>
       <div className="mb-1 text-[10px] text-slate-400 flex justify-between">
-        <span>Age</span>
+        <span>{t('inspector.age')}</span>
         <span className="font-mono">{agePct}%</span>
       </div>
       <div className="h-1.5 rounded bg-white/10 mb-3">
@@ -84,9 +97,9 @@ export function Inspector() {
       </div>
 
       <div className="grid grid-cols-1 gap-1">
-        {TRAITS.map(({ key, label }) => (
+        {TRAITS.map((key) => (
           <div key={key} className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-400 w-16">{label}</span>
+            <span className="text-[10px] text-slate-400 w-16">{t(`gene.${key}`)}</span>
             <div className="flex-1 h-1 rounded bg-white/10">
               <div
                 className="h-full rounded"

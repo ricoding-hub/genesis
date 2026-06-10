@@ -8,8 +8,13 @@ export enum Biome {
   Tundra = 5,
   Mountain = 6,
   Wasteland = 7,
+  Jungle = 8,
+  Swamp = 9,
+  River = 10,
+  Savanna = 11,
 }
 
+/** English fallbacks; UI shows i18n `biome.<key>` via BIOME_KEYS. */
 export const BIOME_NAMES: Record<Biome, string> = {
   [Biome.Ocean]: 'Ocean',
   [Biome.Shore]: 'Shore',
@@ -19,6 +24,26 @@ export const BIOME_NAMES: Record<Biome, string> = {
   [Biome.Tundra]: 'Tundra',
   [Biome.Mountain]: 'Mountain',
   [Biome.Wasteland]: 'Wasteland',
+  [Biome.Jungle]: 'Jungle',
+  [Biome.Swamp]: 'Swamp',
+  [Biome.River]: 'River',
+  [Biome.Savanna]: 'Savanna',
+};
+
+/** i18n key suffix per biome (namespace `biome`). */
+export const BIOME_KEYS: Record<Biome, string> = {
+  [Biome.Ocean]: 'ocean',
+  [Biome.Shore]: 'shore',
+  [Biome.Grassland]: 'grassland',
+  [Biome.Forest]: 'forest',
+  [Biome.Desert]: 'desert',
+  [Biome.Tundra]: 'tundra',
+  [Biome.Mountain]: 'mountain',
+  [Biome.Wasteland]: 'wasteland',
+  [Biome.Jungle]: 'jungle',
+  [Biome.Swamp]: 'swamp',
+  [Biome.River]: 'river',
+  [Biome.Savanna]: 'savanna',
 };
 
 /** Per-biome simulation parameters. */
@@ -100,7 +125,48 @@ export type GodTool =
   | 'food'
   | 'kill'
   | 'spawn'
-  | 'tribe';
+  | 'tribe'
+  | 'wall'
+  | 'gate'
+  | 'humans'
+  | 'bless'
+  | 'smite';
+
+/** Biological sex (humanoids reproduce sexually). */
+export type Sex = 'M' | 'F';
+
+export type CohortProfile = 'balanced' | 'smart' | 'strong' | 'nocturnal';
+export type CohortSex = 'mixed' | 'M' | 'F';
+
+export interface CohortOptions {
+  count: number;
+  sex: CohortSex;
+  profile: CohortProfile;
+}
+
+export type Scenario = 'genesis' | 'advanced' | 'arena';
+
+export type VersusMatchup =
+  | 'menVsWomen'
+  | 'smartVsStrong'
+  | 'nightVsDay'
+  | 'herbVsCarn';
+
+export interface VersusSideStats {
+  population: number;
+  era: number;
+  knowledge: number;
+  avgSize: number;
+  avgIntel: number;
+  color: string;
+}
+
+export interface VersusState {
+  active: boolean;
+  matchup: VersusMatchup;
+  left: VersusSideStats;
+  right: VersusSideStats;
+}
 
 /** Technological/cultural ages a humanoid tribe advances through. */
 export enum Era {
@@ -130,7 +196,7 @@ export const ERA_ICONS: Record<Era, string> = {
   [Era.Writing]: '📜',
 };
 
-export type StructureType = 'campfire' | 'shrine' | 'farm';
+export type StructureType = 'campfire' | 'shrine' | 'farm' | 'temple' | 'altar';
 
 export interface Structure {
   id: number;
@@ -145,7 +211,9 @@ export interface Structure {
 export interface CivMilestone {
   t: number;
   icon: string;
-  text: string;
+  /** i18n key under `milestone.*`. */
+  key: string;
+  params: Record<string, string | number>;
 }
 
 export interface TribeInfo {
@@ -160,15 +228,33 @@ export interface TribeInfo {
   population: number;
   explorers: number;
   founded: number;
+  /** Divine favor toward the player-god, 0..100. */
+  favor: number;
+  /** Whether a temple to the player-god stands. */
+  hasTemple: boolean;
 }
 
-export type EventType = 'meteor' | 'iceage' | 'wildfire' | 'plague';
+export type EventType =
+  | 'meteor'
+  | 'iceage'
+  | 'wildfire'
+  | 'plague'
+  | 'drought'
+  | 'flood'
+  | 'earthquake'
+  | 'volcano'
+  | 'bloom'
+  | 'locust'
+  | 'eclipse';
 
 export interface ActiveEventInfo {
   type: EventType;
   /** 0..1 progress through the event. */
   progress: number;
-  label: string;
+  /** i18n key under `eventLabel.*`. */
+  labelKey: string;
+  /** Interpolation params for the label. */
+  params?: Record<string, string | number>;
 }
 
 /** Snapshot of one point of the population time series. */
@@ -214,6 +300,7 @@ export interface StatsSnapshot {
   activeEvents: ActiveEventInfo[];
   tribes: TribeInfo[];
   civLog: CivMilestone[];
+  versus: VersusState | null;
 }
 
 /** Inspector data for one selected creature. */
@@ -230,6 +317,7 @@ export interface CreatureInfo {
   speciesColor: string;
   archetype: string;
   children: number;
+  sex: Sex;
   /** Civilization data — present only for humanoids in a tribe. */
   tribeName: string | null;
   tribeEra: Era | null;

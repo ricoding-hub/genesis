@@ -1,26 +1,31 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GENE_PRESETS, decodeSize, decodeSpeed, decodeVision } from '@/engine/Genetics';
-import { ARCHETYPE_NAMES, getSprite, pickArchetype } from '@/engine/Sprites';
+import { getSprite, pickArchetype } from '@/engine/Sprites';
 import { useStore } from '@/state/store';
 import { Genes } from '@/types';
 import { TAU } from '@/utils/math';
 
-const GENE_LABELS: { key: keyof Genes; label: string; low: string; high: string }[] = [
-  { key: 'speed', label: 'Speed', low: 'slow', high: 'fast' },
-  { key: 'size', label: 'Size', low: 'tiny', high: 'huge' },
-  { key: 'vision', label: 'Vision', low: 'blind', high: 'eagle' },
-  { key: 'hue', label: 'Color', low: '', high: '' },
-  { key: 'diet', label: 'Diet', low: 'herbivore', high: 'carnivore' },
-  { key: 'efficiency', label: 'Efficiency', low: 'wasteful', high: 'frugal' },
-  { key: 'reproThreshold', label: 'Repro. threshold', low: 'eager', high: 'cautious' },
-  { key: 'mutationRate', label: 'Mutation rate', low: 'stable', high: 'chaotic' },
-  { key: 'lifespan', label: 'Lifespan', low: 'brief', high: 'ancient' },
-  { key: 'nocturnal', label: 'Nocturnality', low: 'diurnal', high: 'nocturnal' },
+const GENE_KEYS: (keyof Genes)[] = [
+  'speed',
+  'size',
+  'vision',
+  'hue',
+  'diet',
+  'efficiency',
+  'reproThreshold',
+  'mutationRate',
+  'lifespan',
+  'nocturnal',
 ];
+
+/** Preset i18n keys, parallel to GENE_PRESETS order. */
+const PRESET_KEYS = ['speedDemon', 'tank', 'balanced', 'nocturnalHunter'];
 
 /** Draw a live phenotype preview of the genome onto a small canvas. */
 function PhenotypePreview({ genes }: { genes: Genes }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const { t: tr } = useTranslation();
 
   useEffect(() => {
     const canvas = ref.current;
@@ -64,6 +69,7 @@ function PhenotypePreview({ genes }: { genes: Genes }) {
       const arch = pickArchetype(genes);
       const frame: 0 | 1 = Math.sin(t * 4) > 0 ? 1 : 0;
       const sprite = getSprite(arch, genes.hue, frame);
+      const archName = tr(`archetype.${arch}`);
       const scale = (3.2 + decodeSize(genes) * 0.55) | 0;
       const sw = sprite.width * scale;
       const sh = sprite.height * scale;
@@ -74,13 +80,13 @@ function PhenotypePreview({ genes }: { genes: Genes }) {
       ctx.fillStyle = 'rgba(255,255,255,0.75)';
       ctx.font = '600 11px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(ARCHETYPE_NAMES[arch], cx, h - 8);
+      ctx.fillText(archName, cx, h - 8);
 
       raf = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [genes]);
+  }, [genes, tr]);
 
   return (
     <canvas
@@ -93,6 +99,7 @@ function PhenotypePreview({ genes }: { genes: Genes }) {
 }
 
 export function GeneticLab() {
+  const { t } = useTranslation();
   const open = useStore((s) => s.labOpen);
   const setOpen = useStore((s) => s.setLabOpen);
   const genes = useStore((s) => s.labGenes);
@@ -106,15 +113,15 @@ export function GeneticLab() {
   if (!open) return null;
 
   const stats = [
-    `${decodeSpeed(genes).toFixed(0)} px/s`,
-    `${decodeSize(genes).toFixed(1)} px`,
-    `${decodeVision(genes).toFixed(0)} px sight`,
+    t('lab.pxs', { n: decodeSpeed(genes).toFixed(0) }),
+    t('lab.px', { n: decodeSize(genes).toFixed(1) }),
+    t('lab.sight', { n: decodeVision(genes).toFixed(0) }),
   ];
 
   return (
     <div className="glass absolute right-3 top-1/2 -translate-y-1/2 w-[340px] max-h-[88vh] max-md:inset-x-2 max-md:top-12 max-md:bottom-16 max-md:w-auto max-md:max-h-none max-md:translate-y-0 p-4 animate-slide-up overflow-y-auto thin-scroll">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">🧪 Genetic Lab</h2>
+        <h2 className="text-sm font-semibold">🧪 {t('lab.title')}</h2>
         <button className="btn" onClick={() => setOpen(false)}>
           ✕
         </button>
@@ -128,23 +135,23 @@ export function GeneticLab() {
       </div>
 
       <div className="flex gap-1.5 flex-wrap mb-3">
-        {GENE_PRESETS.map((p) => (
+        {GENE_PRESETS.map((p, i) => (
           <button
             key={p.name}
             className="btn text-[11px]"
             onClick={() => setGenes({ ...p.genes })}
-            title={p.description}
+            title={t(`preset.${PRESET_KEYS[i]}Desc`)}
           >
-            {p.name}
+            {t(`preset.${PRESET_KEYS[i]}`)}
           </button>
         ))}
       </div>
 
       <div className="flex flex-col gap-2">
-        {GENE_LABELS.map(({ key, label, low, high }) => (
+        {GENE_KEYS.map((key) => (
           <div key={key}>
             <div className="flex justify-between text-[11px] mb-0.5">
-              <span className="text-slate-300">{label}</span>
+              <span className="text-slate-300">{t(`gene.${key}`)}</span>
               <span className="text-slate-500 font-mono">{genes[key].toFixed(2)}</span>
             </div>
             <input
@@ -164,10 +171,10 @@ export function GeneticLab() {
                   : undefined
               }
             />
-            {low && (
+            {key !== 'hue' && (
               <div className="flex justify-between text-[9px] text-slate-500">
-                <span>{low}</span>
-                <span>{high}</span>
+                <span>{t(`geneLow.${key}`)}</span>
+                <span>{t(`geneHigh.${key}`)}</span>
               </div>
             )}
           </div>
@@ -181,10 +188,10 @@ export function GeneticLab() {
           setTool('spawn');
           if (!godModeOpen) toggleGodMode();
           setOpen(false);
-          showToast('Click anywhere on land to release your creature');
+          showToast(t('lab.releaseHint'));
         }}
       >
-        🌍 Release into world
+        🌍 {t('lab.release')}
       </button>
     </div>
   );

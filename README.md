@@ -10,9 +10,15 @@
 
 ## ✨ Features
 
-- **Procedural world** — simplex-noise terrain with 7 biomes (ocean, shore, grassland, forest, desert, tundra, mountain), each with its own food rate, temperature and movement cost
+- **Procedural world** — simplex-noise terrain with 11 biomes (ocean, river, shore, grassland, savanna, forest, jungle, swamp, desert, tundra, mountain) plus carved **rivers**, each with its own food rate, temperature and movement cost
 - **Pixel-art creature families** — every species is assigned a recognizable archetype from its genes (wolf, bear, deer, rabbit, bird, owl, lizard, beetle, humanoid), drawn as hand-crafted, walk-animated pixel sprites colorized by the species' evolving hue
-- **Human civilization** — when a humanoid species takes hold, the **Spark of Sapience** ignites and tribes rise *above* biology. They pool collective knowledge through communication, elders and "first-penguin" explorers, and climb the ages — **Stone → Fire → Tools → Agriculture → Faith → Writing** — visibly re-clothing their sprites at each era. Tribes build **campfires** (warmth at night + cooked food), **farms** (cultivated food), and **shrines** to a named **deity** they gather to worship. A Chronicle logs every milestone ("🔥 The Emberkin discovered Fire", "⛩️ Sunward raised a shrine to Aurel")
+- **Human civilization** — when a humanoid species takes hold, the **Spark of Sapience** ignites and tribes rise *above* biology. They pool collective knowledge through communication, elders and "first-penguin" explorers, and climb the ages — **Stone → Fire → Tools → Agriculture → Faith → Writing** — visibly re-clothing their sprites at each era. Tribes build **campfires** (warmth at night + cooked food), **farms** (cultivated food), and **shrines** to a named **deity** they gather to worship. A Chronicle logs every milestone
+- **Be their God** — they worship *you*. A **Divine Favor** meter per tribe rises when you feed or **bless** them (food-rain + healing) and falls when you **smite** them (a killing bolt) or let famine strike. Win their devotion and they raise **temples** in your name and gather to pray skyward; lose it and they make **sacrifices** to appease you
+- **Sexes & sexual reproduction** — humanoids are male/female (subtle dimorphism) and need both sexes to breed
+- **Versus Arena** — split the world with a **wall** (paint your own, leave gates) and pit two cohorts head-to-head with a live scoreboard: **Men vs Women**, **Smart vs Strong**, **Nocturnal vs Diurnal**, **Herbivores vs Carnivores** — or hand-place custom cohorts and watch them race
+- **11 catastrophes** — meteor, ice age, wildfire, plague, drought, flood, earthquake, volcano, locusts, eclipse, and a bountiful bloom; fire them as a god or let them strike at random
+- **Scenarios** — start from empty **Genesis**, a preloaded **Advanced Humans** world (tools, farms, temples already standing), or the **Versus Arena**
+- **Bilingual** — fully translated, **Spanish by default** with a one-click English toggle (i18next, easy to extend)
 - **Simulated DNA** — 10 genes per creature: speed, size, vision, color, diet spectrum, efficiency, reproduction threshold, mutation rate, lifespan, nocturnality
 - **Real natural selection** — crossover + mutation on reproduction; the environment decides who survives
 - **Speciation** — populations that drift genetically apart fork into visually distinct species, tracked on a phylogenetic timeline
@@ -70,6 +76,7 @@ npx gh-pages -d dist
 - **React 18 + TailwindCSS** — glass-morphism UI overlay
 - **Recharts** — dashboard charts
 - **zustand** — engine → UI state bridge
+- **i18next / react-i18next** — Spanish + English, dynamic and extensible
 - Custom simplex noise, spatial hash grid, fixed-timestep game loop
 
 ## 🏗 Architecture
@@ -79,8 +86,8 @@ src/
 ├── engine/          # framework-free simulation core
 │   ├── World.ts        # tile grid, biome generation, food, terraform, regrowth
 │   ├── Genetics.ts     # genome, crossover, mutation, presets
-│   ├── Sprites.ts      # pixel-art archetype templates + gene→family mapping
-│   ├── Culture.ts      # human civilization: tribes, eras, fire, faith, explorers
+│   ├── Sprites.ts      # pixel-art archetypes + per-era/per-sex humanoid sprites
+│   ├── Culture.ts      # civilization: tribes, eras, fire, faith, divine favor, temples
 │   ├── Creature.ts     # steering behaviors, energy model, lifecycle
 │   ├── Species.ts      # online clustering → speciation tracking
 │   ├── Events.ts       # meteor / ice age / wildfire / plague

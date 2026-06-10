@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ERA_ICONS } from '@/types';
+import { setLanguage } from '@/i18n';
 import { useStore } from '@/state/store';
 import { CivilizationPanel } from './CivilizationPanel';
 import { useIsMobile } from './useIsMobile';
@@ -9,76 +11,91 @@ import { GeneticLab } from './GeneticLab';
 import { GodMode } from './GodMode';
 import { Inspector } from './Inspector';
 import { Minimap } from './Minimap';
+import { ScenarioModal } from './ScenarioModal';
 import { TimeControls } from './TimeControls';
-
-function formatAge(seconds: number): string {
-  const days = Math.floor(seconds / 90);
-  return `Day ${days + 1}`;
-}
+import { VersusPanel } from './VersusPanel';
 
 function DayNightIcon({ phase }: { phase: number }) {
   // Sun arc: phase 0 dawn → 0.25 noon → 0.5 dusk → 0.75 midnight.
   const isNight = phase > 0.5;
   return (
-    <span className="text-base leading-none" title={`Day phase ${(phase * 24).toFixed(0)}h`}>
+    <span className="text-base leading-none">
       {isNight ? '🌙' : phase < 0.08 || phase > 0.42 ? '🌅' : '☀️'}
     </span>
   );
 }
 
+function LanguageToggle() {
+  const { i18n } = useTranslation();
+  const next = i18n.language === 'es' ? 'en' : 'es';
+  return (
+    <button
+      className="btn"
+      onClick={() => setLanguage(next)}
+      title={i18n.t('lang.switch')}
+    >
+      {i18n.language === 'es' ? '🇪🇸' : '🇬🇧'}
+    </button>
+  );
+}
+
 function HUD() {
+  const { t } = useTranslation();
   const snapshot = useStore((s) => s.snapshot);
   const dashboardOpen = useStore((s) => s.dashboardOpen);
   const setDashboardOpen = useStore((s) => s.setDashboardOpen);
   const civOpen = useStore((s) => s.civOpen);
   const setCivOpen = useStore((s) => s.setCivOpen);
+  const versusOpen = useStore((s) => s.versusOpen);
+  const setVersusOpen = useStore((s) => s.setVersusOpen);
+  const setScenarioOpen = useStore((s) => s.setScenarioOpen);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
   if (!snapshot) return null;
   // Most advanced living tribe drives the civilization chip.
   const topTribe = [...snapshot.tribes].sort((a, b) => b.era - a.era)[0];
   return (
-    <div className="glass absolute top-2 md:top-3 left-1/2 -translate-x-1/2 px-2.5 md:px-4 py-1.5 md:py-2 flex items-center gap-2 md:gap-4 text-xs md:text-sm animate-fade-in max-w-[97vw] whitespace-nowrap">
+    <div className="glass absolute top-2 md:top-3 left-1/2 -translate-x-1/2 px-2.5 md:px-4 py-1.5 md:py-2 flex items-center gap-2 md:gap-3 text-xs md:text-sm animate-fade-in max-w-[97vw] whitespace-nowrap">
       <DayNightIcon phase={snapshot.dayPhase} />
-      <span className="font-mono text-slate-300">{formatAge(snapshot.worldAge)}</span>
+      <span className="font-mono text-slate-300">{t('hud.day', { n: Math.floor(snapshot.worldAge / 90) + 1 })}</span>
       <span className="text-slate-500 hidden md:inline">|</span>
-      <span title="Living creatures">
+      <span>
         <span className="text-emerald-300 font-semibold font-mono">{snapshot.population}</span>
-        <span className="text-slate-400 text-xs ml-1">alive</span>
+        <span className="text-slate-400 text-xs ml-1">{t('hud.alive')}</span>
       </span>
-      <span title="Highest generation born">
+      <span>
         <span className="text-sky-300 font-semibold font-mono">{snapshot.generation}</span>
-        <span className="text-slate-400 text-xs ml-1">gen</span>
+        <span className="text-slate-400 text-xs ml-1">{t('hud.gen')}</span>
       </span>
-      <span title="Living species" className="hidden sm:inline">
+      <span className="hidden sm:inline">
         <span className="text-fuchsia-300 font-semibold font-mono">
           {snapshot.species.filter((sp) => sp.population > 0).length}
         </span>
-        <span className="text-slate-400 text-xs ml-1">species</span>
+        <span className="text-slate-400 text-xs ml-1">{t('hud.species')}</span>
       </span>
       <span className="text-slate-500 hidden md:inline">|</span>
-      <span className="font-mono text-xs text-slate-400 hidden md:inline" title="Frames per second">
-        {snapshot.fps} fps
-      </span>
+      <span className="font-mono text-xs text-slate-400 hidden md:inline">{snapshot.fps} {t('hud.fps')}</span>
       <button
         className={`btn ${dashboardOpen ? 'btn-active' : ''}`}
         onClick={() => setDashboardOpen(!dashboardOpen)}
-        title="Evolution dashboard (D)"
       >
-        📊<span className="hidden md:inline"> Stats</span>
+        📊<span className="hidden md:inline"> {t('hud.stats')}</span>
       </button>
-      <button
-        className={`btn ${civOpen ? 'btn-active' : ''}`}
-        onClick={() => setCivOpen(!civOpen)}
-        title="Civilization (C)"
-      >
+      <button className={`btn ${civOpen ? 'btn-active' : ''}`} onClick={() => setCivOpen(!civOpen)}>
         {topTribe ? ERA_ICONS[topTribe.era] : '🏛️'}
-        <span className="hidden md:inline"> Civ</span>
+        <span className="hidden md:inline"> {t('hud.civ')}</span>
       </button>
       <button
-        className="btn hidden md:block"
-        onClick={() => setHelpOpen(true)}
-        title="Help & shortcuts"
+        className={`btn ${versusOpen ? 'btn-active' : ''}`}
+        onClick={() => setVersusOpen(!versusOpen)}
+        title={t('versus.title')}
       >
+        ⚔️
+      </button>
+      <button className="btn" onClick={() => setScenarioOpen(true)} title={t('scenario.restart')}>
+        🌍
+      </button>
+      <LanguageToggle />
+      <button className="btn hidden md:block" onClick={() => setHelpOpen(true)} title={t('hud.help')}>
         ?
       </button>
     </div>
@@ -87,6 +104,7 @@ function HUD() {
 
 /** First-run hint that fades away; subtle discoverability per the spec. */
 function FirstRunHint() {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [visible, setVisible] = useState(() => {
     try {
@@ -102,22 +120,15 @@ function FirstRunHint() {
     } catch {
       /* private mode */
     }
-    const t = setTimeout(() => setVisible(false), 14000);
-    return () => clearTimeout(t);
+    const id = setTimeout(() => setVisible(false), 14000);
+    return () => clearTimeout(id);
   }, [visible]);
   if (!visible) return null;
   return (
     <div className="glass absolute top-14 md:top-16 left-1/2 -translate-x-1/2 px-4 py-2 text-xs text-slate-300 animate-fade-in flex items-center gap-3 max-w-[94vw] max-md:max-w-[62vw]">
-      <span>🌱 Life has been seeded — evolution is already running.</span>
+      <span>{t('firstRun.seeded')}</span>
       <span className="text-slate-500 hidden sm:inline">
-        {isMobile ? (
-          <>Drag to pan · pinch to zoom · tap a creature to inspect</>
-        ) : (
-          <>
-            Drag to pan · scroll to zoom · <kbd className="text-emerald-300">G</kbd> god mode ·{' '}
-            <kbd className="text-emerald-300">L</kbd> lab
-          </>
-        )}
+        {isMobile ? t('firstRun.mobileHints') : t('firstRun.desktopHints', { g: 'G', l: 'L' })}
       </span>
       <button
         className="text-slate-500 hover:text-white"
@@ -141,22 +152,23 @@ function Toast() {
 }
 
 function Help() {
+  const { t } = useTranslation();
   const helpOpen = useStore((s) => s.helpOpen);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
   if (!helpOpen) return null;
   const rows: [string, string][] = [
-    ['Drag', 'Pan the world'],
-    ['Pinch / scroll', 'Zoom'],
-    ['Tap creature', 'Inspect its genome'],
-    ['Space', 'Pause / play'],
-    ['+ / -', 'Change simulation speed'],
-    ['.', 'Step one tick (while paused)'],
-    ['G', 'Toggle God Mode toolbar'],
-    ['L', 'Open the Genetic Lab'],
-    ['M', 'Toggle minimap'],
-    ['D', 'Toggle evolution dashboard'],
-    ['C', 'Toggle civilization panel'],
-    ['Esc', 'Deselect tool / close panels'],
+    ['Drag', t('help.drag')],
+    ['Pinch / scroll', t('help.pinchZoom')],
+    ['Tap', t('help.tapCreature')],
+    ['Space', t('help.space')],
+    ['+ / -', t('help.speedKeys')],
+    ['.', t('help.stepKey')],
+    ['G', t('help.god')],
+    ['L', t('help.lab')],
+    ['M', t('help.minimap')],
+    ['D', t('help.dashboard')],
+    ['C', t('help.civ')],
+    ['Esc', t('help.esc')],
   ];
   return (
     <div
@@ -165,12 +177,9 @@ function Help() {
       onClick={() => setHelpOpen(false)}
     >
       <div className="glass p-6 w-[420px]" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold mb-1">GENESIS</h2>
-        <p className="text-xs text-slate-400 mb-4">
-          A living ecosystem. Creatures eat, reproduce, mutate and die — natural selection does
-          the rest. Intervene as a god, or just watch evolution unfold.
-        </p>
-        <div className="grid grid-cols-[90px_1fr] gap-y-1.5 text-sm">
+        <h2 className="text-lg font-semibold mb-1">{t('help.title')}</h2>
+        <p className="text-xs text-slate-400 mb-4">{t('help.intro')}</p>
+        <div className="grid grid-cols-[100px_1fr] gap-y-1.5 text-sm">
           {rows.map(([k, v]) => (
             <div key={k} className="contents">
               <span className="font-mono text-emerald-300 text-xs pt-0.5">{k}</span>
@@ -179,7 +188,7 @@ function Help() {
           ))}
         </div>
         <button className="btn mt-5 w-full" onClick={() => setHelpOpen(false)}>
-          Close
+          {t('help.close')}
         </button>
       </div>
     </div>
@@ -196,11 +205,13 @@ export function App() {
       <Minimap />
       <Dashboard />
       <CivilizationPanel />
+      <VersusPanel />
       <GeneticLab />
       <Inspector />
       <Toast />
       <FirstRunHint />
       <Help />
+      <ScenarioModal />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { Genes, LifeStage } from '@/types';
+import { Genes, LifeStage, Sex } from '@/types';
 import { clamp, clamp01, lerp, rand, TAU } from '@/utils/math';
 import {
   decodeLifespan,
@@ -65,6 +65,10 @@ export class Creature {
   cultureGoal: { x: number; y: number } | null = null;
   /** Set true while gathered at a shrine, for the worship visual. */
   worshipping = false;
+  /** Biological sex; only constrains reproduction for humanoids. */
+  readonly sex: Sex;
+  /** Praying to the player-god (temple) — for the prayer visual. */
+  praying = false;
 
   constructor(
     x: number,
@@ -72,17 +76,22 @@ export class Creature {
     genes: Genes,
     generation = 0,
     parentIds: [number, number] = [-1, -1],
+    sex: Sex = Math.random() < 0.5 ? 'M' : 'F',
   ) {
     this.x = x;
     this.y = y;
     this.genes = genes;
     this.generation = generation;
     this.parentIds = parentIds;
-    this.maxSpeed = decodeSpeed(genes);
-    this.adultRadius = decodeSize(genes);
+    this.sex = sex;
+    // Subtle sexual dimorphism: males a touch larger & faster, females a
+    // touch more efficient & longer-lived. Tiny so it never dominates genes.
+    const male = sex === 'M';
+    this.maxSpeed = decodeSpeed(genes) * (male ? 1.04 : 0.98);
+    this.adultRadius = decodeSize(genes) * (male ? 1.06 : 0.95);
     this.vision = decodeVision(genes);
-    this.maxEnergy = decodeMaxEnergy(genes);
-    this.lifespan = decodeLifespan(genes);
+    this.maxEnergy = decodeMaxEnergy(genes) * (male ? 1.0 : 1.04);
+    this.lifespan = decodeLifespan(genes) * (male ? 0.97 : 1.05);
     this.energy = this.maxEnergy * 0.55;
   }
 

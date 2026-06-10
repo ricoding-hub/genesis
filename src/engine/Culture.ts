@@ -1,13 +1,6 @@
-import {
-  CivMilestone,
-  Era,
-  ERA_ICONS,
-  ERA_NAMES,
-  Structure,
-  TribeInfo,
-} from '@/types';
+import { CivMilestone, Era, ERA_ICONS, Structure, TribeInfo } from '@/types';
 import { hsl } from '@/utils/colors';
-import { clamp01, dist2, pick, rand, TAU } from '@/utils/math';
+import { clamp, clamp01, dist2, pick, rand, TAU } from '@/utils/math';
 import type { Creature } from './Creature';
 import type { SpatialGrid } from './SpatialGrid';
 import { WORLD_H, WORLD_W } from './World';
@@ -68,6 +61,13 @@ interface Tribe {
   explorers: number;
   /** Learning effort accumulated this tick (applied with saturation). */
   effort: number;
+  /** Sum of (vision+efficiency) over members this tick → average intellect. */
+  intelSum: number;
+  /** Divine favor toward the player-god, 0..100. */
+  favor: number;
+  hasTemple: boolean;
+  templeTimer: number;
+  sacrificeTimer: number;
   /** Cooldown timers for structure building. */
   fireTimer: number;
   farmTimer: number;
@@ -100,14 +100,14 @@ export class Culture {
     return this.tribes.get(tribeId);
   }
 
-  private log(icon: string, text: string, worldAge: number): void {
-    this.milestones.unshift({ t: Math.round(worldAge), icon, text });
+  private log(icon: string, key: string, params: Record<string, string | number>, worldAge: number): void {
+    this.milestones.unshift({ t: Math.round(worldAge), icon, key, params });
     if (this.milestones.length > 80) this.milestones.pop();
   }
 
   private newTribe(x: number, y: number, worldAge: number): Tribe {
     const id = nextTribeId++;
-    const name = `The ${pick(TRIBE_PREFIX)}${pick(TRIBE_SUFFIX)}`;
+    const name = `${pick(TRIBE_PREFIX)}${pick(TRIBE_SUFFIX)}`;
     const tribe: Tribe = {
       id,
       name,
@@ -120,13 +120,18 @@ export class Culture {
       population: 0,
       explorers: 0,
       effort: 0,
+      intelSum: 0,
+      favor: 40,
+      hasTemple: false,
+      templeTimer: 0,
+      sacrificeTimer: 0,
       fireTimer: 0,
       farmTimer: 0,
       hasShrine: false,
     };
     this.tribes.set(id, tribe);
     this.eraOf.set(id, Era.Stone);
-    this.log('✨', `${name} awakens — the Spark of Sapience`, worldAge);
+    this.log('✨', 'spark', { tribe: name }, worldAge);
     return tribe;
   }
 
@@ -206,7 +211,10 @@ export class Culture {
     // Per-creature learning effort + culture steering. Effort is summed per
     // tribe and converted to knowledge below with population saturation, so a
     // 200-strong tribe doesn't learn 40x faster than a band of five.
-    for (const t of this.tribes.values()) t.effort = 0;
+    for (const t of this.tribes.values()) {
+      t.effort = 0;
+      t.intelSum = 0;
+    }
     this.worshipClock += dt;
     const worshipPhase = (this.worshipClock % 30) < 6; // brief gathering window
     for (const c of humanoids) {
@@ -262,16 +270,23 @@ export class Culture {
         }
       }
       tribe.effort += effort;
+      tribe.intelSum += c.genes.vision + c.genes.efficiency;
     }
 
-    // Convert effort → knowledge with diminishing returns on headcount and a
-    // slowdown in later ages (each leap is harder than the last).
+    // Convert effort → knowledge with diminishing returns on headcount, a
+    // slowdown in later ages, and a boost for smarter tribes (so "smart"
+    // cohorts out-tech "strong" ones).
     for (const tribe of this.tribes.values()) {
       if (tribe.population < 1) continue;
       const saturation = tribe.effort / (1 + tribe.population * 0.12);
       const eraSlow = 1 / (1 + tribe.era * 0.55);
-      tribe.knowledge += saturation * 0.06 * eraSlow * dt;
+      const intellect = tribe.intelSum / tribe.population; // 0..2
+      const intelFactor = 0.55 + intellect * 0.5; // ~0.55..1.55
+      tribe.knowledge += saturation * 0.06 * eraSlow * intelFactor * dt;
     }
+
+    // Divine favor relaxes toward neutral; temples & sacrifices managed here.
+    this.updateDivine(dt, humanoids, worldAge);
 
     // Slowly recentre each settlement on its living members.
     this.recentreSettlements(humanoids);
@@ -344,24 +359,24 @@ export class Culture {
   private onEnterEra(tribe: Tribe, era: Era, worldAge: number): void {
     switch (era) {
       case Era.Fire:
-        this.log('🔥', `${tribe.name} discovered Fire`, worldAge);
+        this.log('🔥', 'fire', { tribe: tribe.name }, worldAge);
         this.addStructure('campfire', tribe);
         break;
       case Era.Tools:
-        this.log('🪓', `${tribe.name} forged the first Tools`, worldAge);
+        this.log('🪓', 'tools', { tribe: tribe.name }, worldAge);
         break;
       case Era.Agriculture:
-        this.log('🌾', `${tribe.name} learned to farm the land`, worldAge);
+        this.log('🌾', 'agriculture', { tribe: tribe.name }, worldAge);
         break;
       case Era.Faith: {
         tribe.deity = `${pick(DEITY_A)}${pick(DEITY_B)}`;
         tribe.hasShrine = true;
         this.addStructure('shrine', tribe);
-        this.log('⛩️', `${tribe.name} raised a shrine to ${tribe.deity}`, worldAge);
+        this.log('⛩️', 'faith', { tribe: tribe.name, deity: tribe.deity }, worldAge);
         break;
       }
       case Era.Writing:
-        this.log('📜', `${tribe.name} invented writing — ${ERA_NAMES[era]}`, worldAge);
+        this.log('📜', 'writing', { tribe: tribe.name }, worldAge);
         break;
       default:
         break;
@@ -444,7 +459,7 @@ export class Culture {
   private cull(worldAge: number): void {
     for (const [id, tribe] of this.tribes) {
       if (tribe.population === 0 && worldAge - tribe.founded > 4) {
-        this.log('🪦', `${tribe.name} faded into legend`, worldAge);
+        this.log('🪦', 'faded', { tribe: tribe.name }, worldAge);
         this.tribes.delete(id);
         this.eraOf.delete(id);
         this.structures = this.structures.filter((s) => s.tribeId !== id);
@@ -478,6 +493,124 @@ export class Culture {
     return era !== undefined && era >= Era.Tools ? 1.5 : 1;
   }
 
+  // ---- Divine interaction (the player is their god) ----
+
+  /** Find the tribe whose settlement is nearest a point (for divine acts). */
+  nearestTribeId(x: number, y: number, maxDist = 600): number {
+    let best = -1;
+    let bestD2 = maxDist * maxDist;
+    for (const t of this.tribes.values()) {
+      const d2 = dist2(x, y, t.settlement.x, t.settlement.y);
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = t.id;
+      }
+    }
+    return best;
+  }
+
+  addFavor(tribeId: number, amount: number): void {
+    const t = this.tribes.get(tribeId);
+    if (t) t.favor = clamp(t.favor + amount, 0, 100);
+  }
+
+  /** Jump a tribe straight to an era (preloaded "Advanced Humans" scenario). */
+  forceEra(tribeId: number, era: Era, worldAge: number): void {
+    const t = this.tribes.get(tribeId);
+    if (!t) return;
+    t.knowledge = ERA_THRESHOLDS[era] + 1;
+    t.population = Math.max(t.population, MIN_TRIBE);
+    this.advanceEra(t, worldAge);
+    t.favor = 82; // adore you enough to raise a temple
+  }
+
+  /** A divine blessing was poured on a place — nearby tribes rejoice. */
+  onBlessing(x: number, y: number, worldAge: number): string | null {
+    const id = this.nearestTribeId(x, y);
+    if (id < 0) return null;
+    const t = this.tribes.get(id)!;
+    t.favor = clamp(t.favor + 18, 0, 100);
+    this.log('🌟', 'bless', { tribe: t.name }, worldAge);
+    return t.name;
+  }
+
+  /** A divine smite struck — nearby tribes fear (favor swings on terror). */
+  onSmite(x: number, y: number, worldAge: number): string | null {
+    const id = this.nearestTribeId(x, y);
+    if (id < 0) return null;
+    const t = this.tribes.get(id)!;
+    // Terror: mostly fear (favor up via awe) but some resentment.
+    t.favor = clamp(t.favor + 6, 0, 100);
+    this.log('⚡', 'smite', { tribe: t.name }, worldAge);
+    return t.name;
+  }
+
+  /** Per-tick divine bookkeeping: favor decay, temples, sacrifices. */
+  private updateDivine(dt: number, humanoids: Creature[], worldAge: number): void {
+    for (const tribe of this.tribes.values()) {
+      if (tribe.population < MIN_TRIBE) continue;
+      // Favor relaxes gently toward a neutral 45.
+      tribe.favor += (45 - tribe.favor) * 0.01 * dt;
+      // Starvation lowers favor (the god is failing them).
+      const starving = tribe.population > 0 && this.starvingFraction(tribe, humanoids) > 0.4;
+      if (starving) tribe.favor = clamp(tribe.favor - 4 * dt, 0, 100);
+
+      // Temple: high favor + Faith era → build one to the player-god.
+      if (!tribe.hasTemple && tribe.era >= Era.Faith && tribe.favor > 70) {
+        tribe.templeTimer += dt;
+        if (tribe.templeTimer > 4) {
+          tribe.hasTemple = true;
+          this.addStructure('temple', tribe, rand(-30, 30), rand(-30, 30));
+          this.log('🏛️', 'temple', { tribe: tribe.name }, worldAge);
+        }
+      }
+
+      // Sacrifice: low favor or starving → offer to appease the god.
+      if (tribe.era >= Era.Faith && (tribe.favor < 35 || starving)) {
+        tribe.sacrificeTimer += dt;
+        if (tribe.sacrificeTimer > 12) {
+          tribe.sacrificeTimer = 0;
+          if (!tribe.hasTemple) this.addStructure('altar', tribe, rand(-24, 24), rand(-24, 24));
+          tribe.favor = clamp(tribe.favor + 20, 0, 100);
+          this.log('🔪', 'sacrifice', { tribe: tribe.name }, worldAge);
+          // The offering: a member gives their life.
+          const members = humanoids.filter((c) => c.tribeId === tribe.id && !c.explorer);
+          if (members.length > 4) {
+            const victim = members[(Math.random() * members.length) | 0];
+            victim.dead = true;
+            victim.deathCause = 'killed';
+          }
+        }
+      } else {
+        tribe.sacrificeTimer = 0;
+      }
+
+      // Praying-to-you visual: members near a temple pray skyward.
+      if (tribe.hasTemple) {
+        const temple = this.structures.find(
+          (s) => s.type === 'temple' && s.tribeId === tribe.id,
+        );
+        if (temple) {
+          for (const c of humanoids) {
+            if (c.tribeId !== tribe.id || c.explorer) continue;
+            c.praying = dist2(c.x, c.y, temple.x, temple.y) < 50 * 50;
+          }
+        }
+      }
+    }
+  }
+
+  private starvingFraction(tribe: Tribe, humanoids: Creature[]): number {
+    let n = 0;
+    let hungry = 0;
+    for (const c of humanoids) {
+      if (c.tribeId !== tribe.id) continue;
+      n++;
+      if (c.energy < c.maxEnergy * 0.2) hungry++;
+    }
+    return n === 0 ? 0 : hungry / n;
+  }
+
   // ---- Snapshot for UI ----
 
   tribeInfos(): TribeInfo[] {
@@ -498,6 +631,8 @@ export class Culture {
         population: t.population,
         explorers: t.explorers,
         founded: t.founded,
+        favor: t.favor,
+        hasTemple: t.hasTemple,
       });
     }
     return out.sort((a, b) => b.population - a.population);

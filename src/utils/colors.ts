@@ -14,6 +14,10 @@ export const BIOME_COLORS: Record<Biome, { base: RGB; accent: RGB }> = {
   [Biome.Tundra]: { base: [206, 218, 226], accent: [172, 192, 206] },
   [Biome.Mountain]: { base: [118, 112, 110], accent: [156, 150, 146] },
   [Biome.Wasteland]: { base: [72, 58, 52], accent: [94, 74, 62] },
+  [Biome.Jungle]: { base: [30, 88, 44], accent: [54, 120, 56] },
+  [Biome.Swamp]: { base: [64, 84, 62], accent: [82, 100, 70] },
+  [Biome.River]: { base: [40, 96, 150], accent: [70, 132, 184] },
+  [Biome.Savanna]: { base: [168, 158, 88], accent: [192, 178, 104] },
 };
 
 export function rgbToCss(c: RGB, alpha = 1): string {

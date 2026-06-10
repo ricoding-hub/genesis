@@ -38,6 +38,7 @@ export class Renderer {
   private waterFx: HTMLCanvasElement;
   private waterFxCtx: CanvasRenderingContext2D;
   private bakedVersion = -1;
+  private lastWorld: unknown = null;
   private dpr = 1;
   private time = 0;
 
@@ -91,6 +92,11 @@ export class Renderer {
 
   private bakeIfNeeded(): void {
     const world = this.sim.world;
+    // A scenario reset swaps in a fresh World → force a full re-bake.
+    if (world !== this.lastWorld) {
+      this.lastWorld = world;
+      this.bakedVersion = -1;
+    }
     if (world.terrainVersion === this.bakedVersion) return;
 
     const full = this.bakedVersion < 0 || world.dirtyTiles.length > 4000;
@@ -180,6 +186,19 @@ export class Renderer {
       ctx.fillStyle = 'rgba(245,250,255,0.55)';
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
     }
+
+    // God-built wall: stone block with a bevel, drawn over the biome.
+    if (this.sim.world.walls[i]) {
+      ctx.fillStyle = '#5a5550';
+      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      ctx.fillRect(x, y, TILE_SIZE, 3);
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.fillRect(x, y + TILE_SIZE - 3, TILE_SIZE, 3);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+    }
   }
 
   private bakeWaterMask(): void {
@@ -189,7 +208,8 @@ export class Renderer {
     ctx.fillStyle = '#fff';
     for (let r = 0; r < world.rows; r++) {
       for (let c = 0; c < world.cols; c++) {
-        if ((world.biomes[r * world.cols + c] as Biome) === Biome.Ocean) {
+        const b = world.biomes[r * world.cols + c] as Biome;
+        if (b === Biome.Ocean || b === Biome.River) {
           ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
         }
       }
@@ -222,13 +242,17 @@ export class Renderer {
     const cam = this.camera;
     const dpr = this.dpr * scale;
     const z = cam.dzoom * dpr;
+    // Earthquake screen shake.
+    const q = this.sim.events.quakeShake;
+    const sx = q > 0 ? Math.sin(this.time * 60) * q * 6 * dpr : 0;
+    const sy = q > 0 ? Math.cos(this.time * 53) * q * 6 * dpr : 0;
     ctx.setTransform(
       z,
       0,
       0,
       z,
-      dpr * (cam.viewportW / 2) - cam.dx * z,
-      dpr * (cam.viewportH / 2) - cam.dy * z,
+      dpr * (cam.viewportW / 2) - cam.dx * z + sx,
+      dpr * (cam.viewportH / 2) - cam.dy * z + sy,
     );
   }
 
@@ -329,16 +353,19 @@ export class Renderer {
     this.particles.updateAmbient(sim.world, this.camera, dt, sim.isNight);
     this.particles.draw(ctx);
 
-    // Meteor visuals.
+    // Meteor + new event visuals.
     this.drawMeteor(ctx);
+    this.drawEventFx(ctx, dt);
 
-    // Day/night lighting overlay (screen space).
+    // Day/night lighting overlay (screen space), deepened by any eclipse.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const { color, darkness } = nightOverlay(sim.dayPhase);
-    if (darkness > 0.01) {
-      ctx.globalAlpha = darkness;
+    const eclipse = sim.events.eclipseDarkness;
+    const totalDark = Math.min(0.92, darkness + eclipse * 0.82);
+    if (totalDark > 0.01) {
+      ctx.globalAlpha = totalDark;
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = color;
+      ctx.fillStyle = eclipse > 0.05 ? '#0a0a16' : color;
       ctx.fillRect(0, 0, this.entityCanvas.width, this.entityCanvas.height);
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
@@ -396,10 +423,15 @@ export class Renderer {
       const moving = Math.hypot(c.vx, c.vy) > c.maxSpeed * 0.18;
       const walkClock = this.time * (3 + c.maxSpeed * 0.09) + c.animPhase;
       const frame: 0 | 1 = moving && Math.sin(walkClock * TAU * 0.5) > 0 ? 1 : 0;
-      // Humanoids in a tribe wear their era's clothing/tools.
+      // Humanoids wear their tribe era's clothing/tools (Stone if tribeless).
       const sprite =
-        arch === 'humanoid' && c.tribeId >= 0
-          ? humanoidSprite(this.sim.culture.tribeEra(c.tribeId), c.genes.hue, frame)
+        arch === 'humanoid'
+          ? humanoidSprite(
+              c.tribeId >= 0 ? this.sim.culture.tribeEra(c.tribeId) : 0,
+              c.genes.hue,
+              c.sex,
+              frame,
+            )
           : getSprite(arch, c.genes.hue, frame);
       const scale = (r * 2.7) / sprite.width;
       const w = sprite.width * scale;
@@ -514,6 +546,17 @@ export class Renderer {
       ctx.globalAlpha = 1;
     }
 
+    // Praying to YOU: rising golden motes above the head at the temple.
+    if (c.praying) {
+      const rise = (this.time * 14 + c.animPhase * 6) % 12;
+      ctx.globalAlpha = Math.max(0, 1 - rise / 12) * 0.9;
+      ctx.fillStyle = '#ffe48a';
+      ctx.beginPath();
+      ctx.arc(c.x + Math.sin(c.animPhase + this.time) * 1.5, c.y - r - 3 - rise, 1, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
     // Communication: occasional speech tick toward a nearby tribemate.
     if (this.camera.dzoom > 1.2 && !c.explorer && ((c.id + (this.time | 0)) % 5 === 0)) {
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -573,14 +616,113 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(s.x, s.y - 16, 2.2, 0, TAU);
         ctx.fill();
+      } else if (s.type === 'temple') {
+        // A temple to YOU: stone base, columns, golden idol + holy beam.
+        ctx.globalAlpha = 0.16 + Math.sin(this.time * 1.2 + s.id) * 0.06;
+        const beam = ctx.createLinearGradient(s.x, s.y - 60, s.x, s.y);
+        beam.addColorStop(0, 'rgba(255,228,138,0)');
+        beam.addColorStop(1, 'rgba(255,228,138,0.5)');
+        ctx.fillStyle = beam;
+        ctx.fillRect(s.x - 8, s.y - 60, 16, 60);
+        ctx.globalAlpha = 1;
+        // Base + steps.
+        ctx.fillStyle = '#cdbfa6';
+        ctx.fillRect(s.x - 14, s.y, 28, 6);
+        ctx.fillStyle = '#e8dcc2';
+        ctx.fillRect(s.x - 12, s.y - 12, 24, 12);
+        // Columns.
+        ctx.fillStyle = '#f3ecdc';
+        for (let cxn = -9; cxn <= 9; cxn += 6) ctx.fillRect(s.x + cxn - 1, s.y - 12, 2.5, 12);
+        // Pediment.
+        ctx.fillStyle = '#d8cab0';
+        ctx.beginPath();
+        ctx.moveTo(s.x - 14, s.y - 12);
+        ctx.lineTo(s.x, s.y - 22);
+        ctx.lineTo(s.x + 14, s.y - 12);
+        ctx.closePath();
+        ctx.fill();
+        // Golden idol (you).
+        ctx.fillStyle = '#ffd24a';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y - 6, 2.4, 0, TAU);
+        ctx.fill();
+        if (Math.random() < dt * 4) this.particles.burst(s.x, s.y - 14, 1, '#ffe48a', 12);
+      } else if (s.type === 'altar') {
+        // Sacrificial altar: stone block with a blood-red bowl.
+        ctx.fillStyle = '#7a7068';
+        ctx.fillRect(s.x - 6, s.y - 4, 12, 8);
+        ctx.fillStyle = '#5a5048';
+        ctx.fillRect(s.x - 6, s.y + 2, 12, 2);
+        ctx.fillStyle = `rgba(180,30,30,${0.6 + Math.sin(this.time * 3 + s.id) * 0.2})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y - 4, 2, 0, TAU);
+        ctx.fill();
       } else {
-        // Farm plot: tilled rows.
+        // Farm plot: tilled rows with sprouting wheat that sways.
         ctx.fillStyle = 'hsl(30,42%,32%)';
         ctx.fillRect(s.x - 7, s.y - 5, 14, 10);
         ctx.fillStyle = 'hsl(96,40%,42%)';
         for (let i = -1; i <= 1; i++) {
           ctx.fillRect(s.x - 6, s.y + i * 3 - 1, 12, 1.2);
         }
+        // Wheat tufts (taller as the plot ages).
+        const grow = Math.min(1, s.phase / 12);
+        ctx.strokeStyle = 'hsl(48,68%,55%)';
+        ctx.lineWidth = 0.7;
+        for (let wxn = -5; wxn <= 5; wxn += 3) {
+          const sway = Math.sin(this.time * 2 + wxn + s.id) * 1.2;
+          ctx.beginPath();
+          ctx.moveTo(s.x + wxn, s.y + 4);
+          ctx.lineTo(s.x + wxn + sway, s.y + 4 - 6 * grow);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  /** Volcano lava glow and locust swarm clouds (world space). */
+  private drawEventFx(ctx: CanvasRenderingContext2D, dt: number): void {
+    const volcano = this.sim.events.volcano;
+    if (volcano) {
+      const glow = ctx.createRadialGradient(
+        volcano.x,
+        volcano.y,
+        4,
+        volcano.x,
+        volcano.y,
+        volcano.radius,
+      );
+      const pulse = 0.5 + Math.sin(this.time * 6) * 0.2;
+      glow.addColorStop(0, `rgba(255,120,30,${0.5 * pulse})`);
+      glow.addColorStop(0.5, `rgba(220,60,20,${0.3 * pulse})`);
+      glow.addColorStop(1, 'rgba(120,20,10,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(volcano.x, volcano.y, volcano.radius, 0, TAU);
+      ctx.fill();
+      if (Math.random() < dt * 30) {
+        this.particles.ember(
+          volcano.x + (Math.random() - 0.5) * volcano.radius,
+          volcano.y + (Math.random() - 0.5) * volcano.radius,
+        );
+      }
+    }
+
+    const locust = this.sim.events.locust;
+    if (locust) {
+      ctx.fillStyle = 'rgba(60,50,20,0.5)';
+      for (let i = 0; i < 40; i++) {
+        const a = (i / 40) * TAU + this.time * 3;
+        const rr = 20 + ((i * 7) % 50);
+        ctx.beginPath();
+        ctx.arc(
+          locust.x + Math.cos(a) * rr + Math.sin(this.time * 8 + i) * 4,
+          locust.y + Math.sin(a) * rr + Math.cos(this.time * 7 + i) * 4,
+          1.3,
+          0,
+          TAU,
+        );
+        ctx.fill();
       }
     }
   }

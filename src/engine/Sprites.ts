@@ -552,11 +552,20 @@ const HUMAN_ERAS: string[][][] = [
   ],
 ];
 
-/** Get (and cache) a humanoid sprite for a given era + hue + frame. */
-export function humanoidSprite(era: number, hue: number, frame: 0 | 1): HTMLCanvasElement {
+/**
+ * Get (and cache) a humanoid sprite for era + hue + sex + frame. Females get
+ * a longer hair fringe and a headband accent so the two sexes are tellable at
+ * a glance (subtle dimorphism, one template set + a procedural tweak).
+ */
+export function humanoidSprite(
+  era: number,
+  hue: number,
+  sex: 'M' | 'F',
+  frame: 0 | 1,
+): HTMLCanvasElement {
   const e = Math.max(0, Math.min(HUMAN_ERAS.length - 1, era | 0));
   const bucket = Math.round((((hue % 1) + 1) % 1) * HUE_BUCKETS) % HUE_BUCKETS;
-  const key = `human${e}|${bucket}|${frame}`;
+  const key = `human${e}|${bucket}|${sex}|${frame}`;
   const cached = spriteCache.get(key);
   if (cached) return cached;
 
@@ -577,6 +586,28 @@ export function humanoidSprite(era: number, hue: number, frame: 0 | 1): HTMLCanv
       ctx.fillRect(x, y, 1, 1);
     }
   }
+
+  if (sex === 'F') {
+    // Hair: dark strands framing the head (cols 4 and 9, rows 1-4) + a
+    // colored headband across the brow.
+    const hairHue = Math.round((bucket / HUE_BUCKETS) * 360 + 12) % 360;
+    ctx.fillStyle = `hsl(${hairHue},35%,22%)`;
+    for (const [hx, hy] of [
+      [3, 1],
+      [3, 2],
+      [3, 3],
+      [3, 4],
+      [10, 1],
+      [10, 2],
+      [10, 3],
+      [10, 4],
+    ] as const) {
+      if (rows[hy] && rows[hy][hx] === '.') ctx.fillRect(hx, hy, 1, 1);
+    }
+    ctx.fillStyle = `hsl(${(hairHue + 180) % 360},70%,60%)`;
+    ctx.fillRect(5, 1, 4, 1);
+  }
+
   spriteCache.set(key, canvas);
   return canvas;
 }

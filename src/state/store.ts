@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { Biome, CreatureInfo, Genes, GodTool, StatsSnapshot } from '@/types';
+import {
+  Biome,
+  CohortProfile,
+  CohortSex,
+  CreatureInfo,
+  Genes,
+  GodTool,
+  StatsSnapshot,
+} from '@/types';
 import { GENE_PRESETS } from '@/engine/Genetics';
 
 interface UIState {
@@ -11,11 +19,17 @@ interface UIState {
   labOpen: boolean;
   dashboardOpen: boolean;
   civOpen: boolean;
+  versusOpen: boolean;
+  scenarioOpen: boolean;
   minimapVisible: boolean;
   helpOpen: boolean;
   labGenes: Genes;
   /** Genes used by the next spawn-creature click (null = random). */
   spawnGenes: Genes | null;
+  /** Options for the "Human cohort" god tool. */
+  cohortSex: CohortSex;
+  cohortCount: number;
+  cohortProfile: CohortProfile;
   selected: CreatureInfo | null;
   toast: string | null;
 
@@ -27,10 +41,15 @@ interface UIState {
   setLabOpen(open: boolean): void;
   setDashboardOpen(open: boolean): void;
   setCivOpen(open: boolean): void;
+  setVersusOpen(open: boolean): void;
+  setScenarioOpen(open: boolean): void;
   toggleMinimap(): void;
   setHelpOpen(open: boolean): void;
   setLabGenes(g: Genes): void;
   setSpawnGenes(g: Genes | null): void;
+  setCohortSex(s: CohortSex): void;
+  setCohortCount(n: number): void;
+  setCohortProfile(p: CohortProfile): void;
   setSelected(c: CreatureInfo | null): void;
   showToast(msg: string): void;
 }
@@ -46,10 +65,15 @@ export const useStore = create<UIState>((set) => ({
   labOpen: false,
   dashboardOpen: false,
   civOpen: false,
+  versusOpen: false,
+  scenarioOpen: false,
   minimapVisible: true,
   helpOpen: false,
   labGenes: { ...GENE_PRESETS[2].genes },
   spawnGenes: null,
+  cohortSex: 'mixed',
+  cohortCount: 12,
+  cohortProfile: 'balanced',
   selected: null,
   toast: null,
 
@@ -65,10 +89,15 @@ export const useStore = create<UIState>((set) => ({
   setLabOpen: (labOpen) => set({ labOpen }),
   setDashboardOpen: (dashboardOpen) => set({ dashboardOpen }),
   setCivOpen: (civOpen) => set({ civOpen }),
+  setVersusOpen: (versusOpen) => set({ versusOpen }),
+  setScenarioOpen: (scenarioOpen) => set({ scenarioOpen }),
   toggleMinimap: () => set((s) => ({ minimapVisible: !s.minimapVisible })),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   setLabGenes: (labGenes) => set({ labGenes }),
   setSpawnGenes: (spawnGenes) => set({ spawnGenes }),
+  setCohortSex: (cohortSex) => set({ cohortSex }),
+  setCohortCount: (cohortCount) => set({ cohortCount }),
+  setCohortProfile: (cohortProfile) => set({ cohortProfile }),
   setSelected: (selected) => set({ selected }),
   showToast: (toast) => {
     set({ toast });

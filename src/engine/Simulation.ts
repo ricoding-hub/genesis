@@ -1,10 +1,46 @@
-import { Biome, CreatureInfo, EventType, Genes, StatsSnapshot } from '@/types';
-import { clamp01, rand, TAU } from '@/utils/math';
+import {
+  Biome,
+  CohortOptions,
+  CreatureInfo,
+  Era,
+  EventType,
+  Genes,
+  Scenario,
+  Sex,
+  StatsSnapshot,
+  VersusMatchup,
+  VersusSideStats,
+  VersusState,
+} from '@/types';
+import { clamp01, pick, rand, TAU } from '@/utils/math';
 import { Creature } from './Creature';
 import { Culture } from './Culture';
 import { EventManager } from './Events';
-import { cloneGenes, crossover, geneDistance, mutate, randomGenes } from './Genetics';
+import {
+  cloneGenes,
+  cohortGenes,
+  crossover,
+  geneDistance,
+  mutate,
+  randomGenes,
+} from './Genetics';
 import { SpatialGrid } from './SpatialGrid';
+
+/** Events the random scheduler may fire (skews toward drama, some boons). */
+const RANDOM_EVENT_POOL: EventType[] = [
+  'meteor',
+  'wildfire',
+  'drought',
+  'flood',
+  'earthquake',
+  'volcano',
+  'plague',
+  'locust',
+  'eclipse',
+  'bloom',
+  'bloom',
+  'iceage',
+];
 import { SpeciesTracker } from './Species';
 import { StatsCollector } from './Stats';
 import { Food, World, WORLD_H, WORLD_W } from './World';
@@ -57,6 +93,15 @@ export class Simulation {
   paused = false;
   speed: SimSpeed = 1;
   fps = 60;
+
+  /** Random catastrophe scheduler. */
+  randomEvents = true;
+  private randomEventTimer = rand(60, 140);
+
+  // Versus / Arena state.
+  versusActive = false;
+  versusMatchup: VersusMatchup = 'menVsWomen';
+  versusWallX = WORLD_W / 2;
 
   /** Death positions for the renderer to pop a particle burst. */
   recentDeaths: { x: number; y: number; color: string }[] = [];
@@ -163,10 +208,11 @@ export class Simulation {
       if (c.dead) continue;
       const isHuman = this.isHumanoid(c);
       if (isHuman) humanoids.push(c);
-      // Civilization perks: tools speed foraging, fire cooks food.
+      // Civilization perks (humanoids only): tools speed foraging, fire cooks.
       const civFood =
-        (isHuman && c.tribeId >= 0 ? this.culture.toolBonus(c.tribeId) : 1) *
-        this.culture.cookingBonusAt(c.x, c.y);
+        isHuman && c.tribeId >= 0
+          ? this.culture.toolBonus(c.tribeId) * this.culture.cookingBonusAt(c.x, c.y)
+          : 1;
       c.update(
         dt,
         this.world,
@@ -204,12 +250,15 @@ export class Simulation {
     if (this.creatures.length < MAX_CREATURES) {
       for (const c of this.creatures) {
         if (c.dead || !c.canReproduce()) continue;
+        const cHuman = this.isHumanoid(c);
         const searchR = c.radius + 16;
         let partner: Creature | null = null;
         this.creatureGrid.query(c.x, c.y, searchR, (other) => {
           if (other === c || other.dead || other.id < c.id) return; // pair once
           if (!other.canReproduce()) return;
           if (geneDistance(c.genes, other.genes) > MATE_COMPATIBILITY) return;
+          // Humanoids reproduce sexually: need a male and a female.
+          if (cHuman && this.isHumanoid(other) && other.sex === c.sex) return;
           partner = other;
           return true;
         });
@@ -247,6 +296,15 @@ export class Simulation {
 
     // Events.
     this.events.update(dt, this.world, this.creatures);
+
+    // Random events: occasionally the world throws a curveball.
+    if (this.randomEvents) {
+      this.randomEventTimer -= dt;
+      if (this.randomEventTimer <= 0) {
+        this.randomEventTimer = rand(75, 160);
+        this.triggerEvent(pick(RANDOM_EVENT_POOL));
+      }
+    }
 
     // Periodic bookkeeping.
     this.sampleTimer += dt;
@@ -329,8 +387,86 @@ export class Simulation {
     return true;
   }
 
+  /** Spawn one humanoid with explicit genes & sex; assigns species. */
+  private makeHumanoid(x: number, y: number, genes: Genes, sex: Sex): Creature {
+    const c = new Creature(x, y, genes, this.stats.generation, [-1, -1], sex);
+    c.energy = c.maxEnergy * 0.82;
+    this.species.assign(c, this.worldAge, c.generation);
+    this.creatures.push(c);
+    return c;
+  }
+
+  /** God tool: place a custom cohort of humans, forming one tribe. */
+  spawnCohort(x: number, y: number, opts: CohortOptions): boolean {
+    if (!this.world.isWalkable(x, y)) return false;
+    const members: Creature[] = [];
+    for (let i = 0; i < opts.count && this.creatures.length < MAX_CREATURES; i++) {
+      let px = x + rand(-55, 55);
+      let py = y + rand(-55, 55);
+      if (!this.world.isWalkable(px, py)) {
+        px = x;
+        py = y;
+      }
+      const sex: Sex = opts.sex === 'mixed' ? (i % 2 === 0 ? 'M' : 'F') : opts.sex;
+      members.push(this.makeHumanoid(px, py, cohortGenes(opts.profile), sex));
+    }
+    if (members.length === 0) return false;
+    this.culture.foundTribeAt(x, y, members, this.worldAge);
+    return true;
+  }
+
   dropFood(x: number, y: number): void {
     this.world.spawnFoodCluster(x, y, 16, 55);
+    // Feeding a tribe near here earns their favor.
+    const id = this.culture.nearestTribeId(x, y, 220);
+    if (id >= 0) this.culture.addFavor(id, 6);
+  }
+
+  // ---- Walls & divine powers ----
+
+  paintWall(x: number, y: number, radius: number): void {
+    this.world.paintWall(x, y, radius, true);
+  }
+  eraseWall(x: number, y: number, radius: number): void {
+    this.world.paintWall(x, y, radius, false);
+  }
+
+  /** Bless an area: rain food, heal, and earn favor. Returns tribe name. */
+  bless(x: number, y: number, radius = 90): string | null {
+    this.world.spawnFoodCluster(x, y, 26, radius * 0.7);
+    const r2 = radius * radius;
+    for (const c of this.creatures) {
+      const dx = c.x - x;
+      const dy = c.y - y;
+      if (dx * dx + dy * dy < r2) c.energy = Math.min(c.maxEnergy, c.energy + c.maxEnergy * 0.4);
+    }
+    this.particlesBurst(x, y, '#ffe48a');
+    return this.culture.onBlessing(x, y, this.worldAge);
+  }
+
+  /** Smite a spot: a bolt kills in a small radius, scattering the rest. */
+  smite(x: number, y: number, radius = 60): string | null {
+    const r2 = radius * radius;
+    for (const c of this.creatures) {
+      const dx = c.x - x;
+      const dy = c.y - y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < r2) {
+        c.dead = true;
+        c.deathCause = 'killed';
+      } else if (d2 < r2 * 4) {
+        const d = Math.sqrt(d2) || 1;
+        c.vx += (dx / d) * 160;
+        c.vy += (dy / d) * 160;
+        c.energy *= 0.7;
+      }
+    }
+    return this.culture.onSmite(x, y, this.worldAge);
+  }
+
+  /** Queue a particle burst for the renderer (reuses the death channel). */
+  private particlesBurst(x: number, y: number, color: string): void {
+    if (this.recentDeaths.length < 40) this.recentDeaths.push({ x, y, color });
   }
 
   killZone(x: number, y: number, radius: number): void {
@@ -389,6 +525,7 @@ export class Simulation {
       speciesColor: this.species.speciesColor(c.speciesId),
       archetype: this.species.species[c.speciesId]?.archetype ?? 'lizard',
       children: c.children,
+      sex: c.sex,
       tribeName: tribe?.name ?? null,
       tribeEra: tribe ? this.culture.tribeEra(c.tribeId) : null,
       deity: tribe?.deity ?? null,
@@ -417,6 +554,168 @@ export class Simulation {
       activeEvents: this.events.infos(),
       tribes: this.culture.tribeInfos(),
       civLog: this.culture.log_(),
+      versus: this.versusActive ? this.versusState() : null,
     };
+  }
+
+  // ---- Versus / Arena ----
+
+  private versusSideStats(side: 0 | 1, color: string): VersusSideStats {
+    const wallX = this.versusWallX;
+    let pop = 0;
+    let sizeSum = 0;
+    let intelSum = 0;
+    for (const c of this.creatures) {
+      const onLeft = c.x < wallX;
+      if ((side === 0) !== onLeft) continue;
+      pop++;
+      sizeSum += c.genes.size;
+      intelSum += (c.genes.vision + c.genes.efficiency) / 2;
+    }
+    // Era/knowledge: best tribe whose settlement sits on this side.
+    let era = 0;
+    let knowledge = 0;
+    for (const t of this.culture.tribeInfos()) {
+      const tx = this.culture.tribe(t.id)?.settlement.x ?? wallX;
+      const onLeft = tx < wallX;
+      if ((side === 0) === onLeft) {
+        era = Math.max(era, t.era);
+        knowledge = Math.max(knowledge, t.knowledge);
+      }
+    }
+    return {
+      population: pop,
+      era,
+      knowledge: Math.round(knowledge),
+      avgSize: pop ? sizeSum / pop : 0,
+      avgIntel: pop ? intelSum / pop : 0,
+      color,
+    };
+  }
+
+  versusState(): VersusState {
+    return {
+      active: this.versusActive,
+      matchup: this.versusMatchup,
+      left: this.versusSideStats(0, '#5fa8ff'),
+      right: this.versusSideStats(1, '#ff6f91'),
+    };
+  }
+
+  /** Build a central wall and seed two competing cohorts. */
+  startVersus(matchup: VersusMatchup): void {
+    this.reset('genesis', true);
+    this.versusActive = true;
+    this.versusMatchup = matchup;
+    this.randomEvents = false;
+    const wallX = WORLD_W / 2;
+    this.versusWallX = wallX;
+    this.world.buildVerticalWall(wallX);
+
+    const seedSide = (side: 0 | 1, genesFn: () => Genes, sex: Sex | 'mixed') => {
+      const members: Creature[] = [];
+      let cx = 0;
+      let cy = 0;
+      for (let tries = 0; tries < 4000 && members.length < 22; tries++) {
+        const x =
+          side === 0 ? rand(0.08, 0.42) * WORLD_W : rand(0.58, 0.92) * WORLD_W;
+        const y = rand(0.12, 0.88) * WORLD_H;
+        if (!this.world.isWalkable(x, y)) continue;
+        const s: Sex = sex === 'mixed' ? (members.length % 2 === 0 ? 'M' : 'F') : sex;
+        const c = this.makeHumanoid(x, y, genesFn(), s);
+        members.push(c);
+        cx += x;
+        cy += y;
+      }
+      // Each side starts as its own tribe so the scoreboard tracks them apart.
+      if (members.length > 0) {
+        this.culture.foundTribeAt(cx / members.length, cy / members.length, members, this.worldAge);
+      }
+    };
+
+    switch (matchup) {
+      case 'menVsWomen':
+        seedSide(0, () => cohortGenes('balanced'), 'M');
+        seedSide(1, () => cohortGenes('balanced'), 'F');
+        break;
+      case 'smartVsStrong':
+        seedSide(0, () => cohortGenes('smart'), 'mixed');
+        seedSide(1, () => cohortGenes('strong'), 'mixed');
+        break;
+      case 'nightVsDay':
+        seedSide(0, () => cohortGenes('nocturnal'), 'mixed');
+        seedSide(1, () => {
+          const g = cohortGenes('balanced');
+          g.nocturnal = rand(0.02, 0.12);
+          return g;
+        }, 'mixed');
+        break;
+      case 'herbVsCarn':
+        seedSide(0, () => {
+          const g = cohortGenes('balanced');
+          g.diet = rand(0, 0.15);
+          return g;
+        }, 'mixed');
+        seedSide(1, () => {
+          const g = cohortGenes('strong');
+          g.diet = rand(0.85, 1);
+          return g;
+        }, 'mixed');
+        break;
+    }
+    this.species.refresh(this.creatures);
+  }
+
+  endVersus(): void {
+    this.versusActive = false;
+    this.randomEvents = true;
+    this.world.clearWalls();
+  }
+
+  /** Rebuild the world for a scenario (in place; renderer/camera keep refs). */
+  reset(scenario: Scenario, keepVersusFlags = false): void {
+    if (!keepVersusFlags) {
+      this.versusActive = false;
+      this.randomEvents = true;
+    }
+    this.world = new World();
+    this.creatures = [];
+    this.species = new SpeciesTracker();
+    this.culture = new Culture();
+    this.events = new EventManager();
+    this.stats = new StatsCollector();
+    this.worldAge = 0;
+    this.creatureGrid = new SpatialGrid<Creature>(WORLD_W, WORLD_H, 80);
+    this.foodGrid = new SpatialGrid<Food>(WORLD_W, WORLD_H, 80);
+
+    if (scenario === 'genesis') {
+      this.seed(SEED_CREATURES);
+      for (let i = 0; i < 240; i++) this.world.update(1, 2.2);
+    } else if (scenario === 'advanced') {
+      this.seedAdvanced();
+    } else if (scenario === 'arena') {
+      this.startVersus(this.versusMatchup);
+    }
+  }
+
+  /** Preloaded "Advanced Humans" world: several already-civilized tribes. */
+  private seedAdvanced(): void {
+    // A little ambient wildlife too.
+    this.seed(SEED_CREATURES);
+    for (let i = 0; i < 200; i++) this.world.update(1, 2.2);
+    this.worldAge = 3600; // the world is already old
+    // Found several tribes and jump them straight to the Age of Faith.
+    for (let t = 0; t < 4; t++) {
+      const pos = this.randomLandPosition();
+      this.spawnCohort(pos.x, pos.y, { count: 16, sex: 'mixed', profile: 'smart' });
+    }
+    for (const tribe of this.culture.tribes.values()) {
+      this.culture.forceEra(tribe.id, Era.Faith, this.worldAge);
+    }
+    // A few hundred ticks to settle: build temples, farms, gather worshippers.
+    const prevPaused = this.paused;
+    this.paused = false;
+    for (let i = 0; i < 1200; i++) this.tick(TICK);
+    this.paused = prevPaused;
   }
 }

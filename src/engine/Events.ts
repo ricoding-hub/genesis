@@ -93,7 +93,7 @@ class MeteorEvent extends SimEvent {
     return {
       type: this.type,
       progress: Math.min(1, this.elapsed / total),
-      label: this.visual.phase === 'incoming' ? 'Meteor incoming…' : 'Meteor impact!',
+      labelKey: this.visual.phase === 'incoming' ? 'meteorIncoming' : 'meteorImpact',
     };
   }
 }
@@ -143,7 +143,7 @@ class IceAgeEvent extends SimEvent {
     return {
       type: this.type,
       progress: Math.min(1, this.elapsed / this.duration),
-      label: 'Ice age — global temperatures plummet',
+      labelKey: 'iceage',
     };
   }
 }
@@ -247,7 +247,8 @@ class WildfireEvent extends SimEvent {
     return {
       type: this.type,
       progress: Math.min(1, this.elapsed / this.maxDuration),
-      label: `Wildfire — ${this.burningSet.size} tiles burning`,
+      labelKey: 'wildfire',
+      params: { n: this.burningSet.size },
     };
   }
 }
@@ -291,8 +292,284 @@ class PlagueEvent extends SimEvent {
     return {
       type: this.type,
       progress: Math.min(1, this.elapsed / this.duration),
-      label: `Plague targets "${this.gene}" gene — ${this.infected} infected`,
+      labelKey: 'plague',
+      params: { gene: this.gene, n: this.infected },
     };
+  }
+}
+
+/** A drought: heat rises, food spawns dry up, some water recedes to shore. */
+class DroughtEvent extends SimEvent {
+  readonly type = 'drought' as const;
+  private elapsed = 0;
+  private readonly duration = 60;
+
+  update(dt: number, world: World, _creatures: Creature[]): void {
+    this.elapsed += dt;
+    const t = this.elapsed;
+    const strength =
+      t < 6 ? t / 6 : t > this.duration - 12 ? Math.max(0, (this.duration - t) / 12) : 1;
+    world.globalTempShift = 0.4 * strength;
+    // Burn off existing food faster.
+    if (world.foods.length > 0 && Math.random() < strength * 0.5) {
+      world.foods.splice((Math.random() * world.foods.length) | 0, 1);
+    }
+    if (t >= this.duration) {
+      world.globalTempShift = 0;
+      this.done = true;
+    }
+  }
+  info(): ActiveEventInfo {
+    return { type: this.type, progress: Math.min(1, this.elapsed / this.duration), labelKey: 'drought' };
+  }
+}
+
+/** A flood: shore and low land temporarily drown, then drain. */
+class FloodEvent extends SimEvent {
+  readonly type = 'flood' as const;
+  private elapsed = 0;
+  private readonly duration = 50;
+  private accum = 0;
+
+  update(dt: number, world: World, creatures: Creature[]): void {
+    this.elapsed += dt;
+    const rising = this.elapsed < this.duration * 0.55;
+    if (rising) {
+      this.accum += dt * 90;
+      while (this.accum > 1) {
+        this.accum -= 1;
+        const i = (Math.random() * world.biomes.length) | 0;
+        const b = world.biomes[i] as Biome;
+        if (b === B.Shore || b === B.Swamp || b === B.Grassland) {
+          const col = i % world.cols;
+          const row = (i / world.cols) | 0;
+          if (world.elevation[i] < 0.46) {
+            world.convertTemporary(col, row, B.River, this.duration - this.elapsed + rand(4, 18));
+          }
+        }
+      }
+    }
+    // Drown creatures caught in new water.
+    for (const c of creatures) {
+      if (!world.isWalkable(c.x, c.y) && world.biomeAt(c.x, c.y) === B.River) {
+        c.energy -= 30 * dt;
+        if (c.energy <= 0 && !c.dead) {
+          c.dead = true;
+          c.deathCause = 'killed';
+        }
+      }
+    }
+    if (this.elapsed >= this.duration) this.done = true;
+  }
+  info(): ActiveEventInfo {
+    return { type: this.type, progress: Math.min(1, this.elapsed / this.duration), labelKey: 'flood' };
+  }
+}
+
+/** An earthquake: brief, cracks open wasteland fissures and kills nearby. */
+class EarthquakeEvent extends SimEvent {
+  readonly type = 'earthquake' as const;
+  shake = 0;
+  private elapsed = 0;
+  private readonly duration = 5;
+  private done2 = false;
+
+  update(dt: number, world: World, creatures: Creature[]): void {
+    this.elapsed += dt;
+    this.shake = Math.max(0, 1 - this.elapsed / this.duration);
+    if (!this.done2 && this.elapsed > 0.4) {
+      this.done2 = true;
+      // Carve a few fissures (wasteland lines) and kill creatures on them.
+      const fissures = 3;
+      for (let f = 0; f < fissures; f++) {
+        let x = rand(0.15, 0.85) * world.cols * TILE_SIZE;
+        let y = rand(0.15, 0.85) * world.rows * TILE_SIZE;
+        const ang = rand(0, Math.PI * 2);
+        for (let s = 0; s < 40; s++) {
+          world.devastate(x, y, rand(14, 26), rand(40, 90));
+          for (const c of creatures) {
+            const dx = c.x - x;
+            const dy = c.y - y;
+            if (dx * dx + dy * dy < 22 * 22 && Math.random() < 0.5) {
+              c.dead = true;
+              c.deathCause = 'killed';
+            }
+          }
+          x += Math.cos(ang) * 24;
+          y += Math.sin(ang) * 24;
+        }
+      }
+    }
+    if (this.elapsed >= this.duration) this.done = true;
+  }
+  info(): ActiveEventInfo {
+    return { type: this.type, progress: Math.min(1, this.elapsed / this.duration), labelKey: 'earthquake' };
+  }
+}
+
+/** A volcano: an eruption point spews lava (hazard) and ash, then cools. */
+class VolcanoEvent extends SimEvent {
+  readonly type = 'volcano' as const;
+  cx: number;
+  cy: number;
+  radius = 0;
+  private elapsed = 0;
+  private readonly duration = 40;
+  private erupted = false;
+
+  constructor(world: World) {
+    super();
+    let x = rand(0.2, 0.8) * world.cols * TILE_SIZE;
+    let y = rand(0.2, 0.8) * world.rows * TILE_SIZE;
+    for (let i = 0; i < 40; i++) {
+      const tx = rand(0.15, 0.85) * world.cols * TILE_SIZE;
+      const ty = rand(0.15, 0.85) * world.rows * TILE_SIZE;
+      if (world.isWalkable(tx, ty)) {
+        x = tx;
+        y = ty;
+        break;
+      }
+    }
+    this.cx = x;
+    this.cy = y;
+    this.radius = rand(70, 120);
+  }
+
+  update(dt: number, world: World, creatures: Creature[]): void {
+    this.elapsed += dt;
+    if (!this.erupted) {
+      this.erupted = true;
+      world.devastate(this.cx, this.cy, this.radius, 110);
+      const r2 = this.radius * this.radius;
+      for (const c of creatures) {
+        const dx = c.x - this.cx;
+        const dy = c.y - this.cy;
+        if (dx * dx + dy * dy < r2) {
+          c.dead = true;
+          c.deathCause = 'killed';
+        }
+      }
+    }
+    // Lava hazard fades over the event.
+    const lava = Math.max(0, 1 - this.elapsed / this.duration);
+    const c0 = Math.floor((this.cx - this.radius) / TILE_SIZE);
+    const c1 = Math.ceil((this.cx + this.radius) / TILE_SIZE);
+    const r0 = Math.floor((this.cy - this.radius) / TILE_SIZE);
+    const r1 = Math.ceil((this.cy + this.radius) / TILE_SIZE);
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        if (c < 0 || r < 0 || c >= world.cols || r >= world.rows) continue;
+        const dx = c * TILE_SIZE + 8 - this.cx;
+        const dy = r * TILE_SIZE + 8 - this.cy;
+        if (dx * dx + dy * dy < this.radius * this.radius) {
+          world.hazard[r * world.cols + c] = lava * 0.8;
+        }
+      }
+    }
+    if (this.elapsed >= this.duration) {
+      for (let r = r0; r <= r1; r++) {
+        for (let c = c0; c <= c1; c++) {
+          if (c < 0 || r < 0 || c >= world.cols || r >= world.rows) continue;
+          world.hazard[r * world.cols + c] = 0;
+        }
+      }
+      this.done = true;
+    }
+  }
+  info(): ActiveEventInfo {
+    return { type: this.type, progress: Math.min(1, this.elapsed / this.duration), labelKey: 'volcano' };
+  }
+}
+
+/** A bloom: a burst of abundance — food rains across the land. */
+class BloomEvent extends SimEvent {
+  readonly type = 'bloom' as const;
+  private elapsed = 0;
+  private readonly duration = 35;
+
+  update(dt: number, world: World, _creatures: Creature[]): void {
+    this.elapsed += dt;
+    // Sprinkle bonus food on walkable land.
+    const drops = 40;
+    for (let i = 0; i < drops; i++) {
+      const x = Math.random() * world.cols * TILE_SIZE;
+      const y = Math.random() * world.rows * TILE_SIZE;
+      if (world.isWalkable(x, y) && Math.random() < dt * 1.4) {
+        world.spawnFood(x, y, rand(1, 1.6));
+      }
+    }
+    if (this.elapsed >= this.duration) this.done = true;
+  }
+  info(): ActiveEventInfo {
+    return { type: this.type, progress: Math.min(1, this.elapsed / this.duration), labelKey: 'bloom' };
+  }
+}
+
+/** A locust swarm: a moving cloud that strips food and crops. */
+class LocustEvent extends SimEvent {
+  readonly type = 'locust' as const;
+  x: number;
+  y: number;
+  private vx = rand(-40, 40);
+  private vy = rand(-40, 40);
+  private elapsed = 0;
+  private readonly duration = 45;
+  stripped = 0;
+
+  constructor(world: World) {
+    super();
+    this.x = rand(0.2, 0.8) * world.cols * TILE_SIZE;
+    this.y = rand(0.2, 0.8) * world.rows * TILE_SIZE;
+  }
+
+  update(dt: number, world: World, _creatures: Creature[]): void {
+    this.elapsed += dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    const w = world.cols * TILE_SIZE;
+    const h = world.rows * TILE_SIZE;
+    if (this.x < 0 || this.x > w) this.vx *= -1;
+    if (this.y < 0 || this.y > h) this.vy *= -1;
+    // Devour food within the swarm radius.
+    const r2 = 70 * 70;
+    const before = world.foods.length;
+    world.foods = world.foods.filter((f) => {
+      const dx = f.x - this.x;
+      const dy = f.y - this.y;
+      return dx * dx + dy * dy > r2;
+    });
+    this.stripped += before - world.foods.length;
+    if (this.elapsed >= this.duration) this.done = true;
+  }
+  info(): ActiveEventInfo {
+    return {
+      type: this.type,
+      progress: Math.min(1, this.elapsed / this.duration),
+      labelKey: 'locust',
+      params: { n: this.stripped },
+    };
+  }
+}
+
+/** A solar eclipse: daylight is briefly snuffed out. */
+class EclipseEvent extends SimEvent {
+  readonly type = 'eclipse' as const;
+  darkness = 0;
+  private elapsed = 0;
+  private readonly duration = 24;
+
+  update(dt: number, _world: World, _creatures: Creature[]): void {
+    this.elapsed += dt;
+    const t = this.elapsed / this.duration;
+    // Ramp to full dark at mid-event, then back.
+    this.darkness = Math.sin(Math.min(1, t) * Math.PI);
+    if (this.elapsed >= this.duration) {
+      this.darkness = 0;
+      this.done = true;
+    }
+  }
+  info(): ActiveEventInfo {
+    return { type: this.type, progress: Math.min(1, this.elapsed / this.duration), labelKey: 'eclipse' };
   }
 }
 
@@ -314,6 +591,27 @@ export class EventManager {
         break;
       case 'plague':
         this.active.push(new PlagueEvent(creatures));
+        break;
+      case 'drought':
+        this.active.push(new DroughtEvent());
+        break;
+      case 'flood':
+        this.active.push(new FloodEvent());
+        break;
+      case 'earthquake':
+        this.active.push(new EarthquakeEvent());
+        break;
+      case 'volcano':
+        this.active.push(new VolcanoEvent(world));
+        break;
+      case 'bloom':
+        this.active.push(new BloomEvent());
+        break;
+      case 'locust':
+        this.active.push(new LocustEvent(world));
+        break;
+      case 'eclipse':
+        this.active.push(new EclipseEvent());
         break;
     }
   }
@@ -347,5 +645,27 @@ export class EventManager {
 
   get iceAgeActive(): boolean {
     return this.active.some((e) => e.type === 'iceage');
+  }
+
+  /** Extra screen darkness from an eclipse, 0..1. */
+  get eclipseDarkness(): number {
+    const e = this.active.find((x) => x.type === 'eclipse') as EclipseEvent | undefined;
+    return e ? e.darkness : 0;
+  }
+
+  /** Screen shake amplitude from an earthquake, 0..1. */
+  get quakeShake(): number {
+    const e = this.active.find((x) => x.type === 'earthquake') as EarthquakeEvent | undefined;
+    return e ? e.shake : 0;
+  }
+
+  get volcano(): { x: number; y: number; radius: number } | null {
+    const e = this.active.find((x) => x.type === 'volcano') as VolcanoEvent | undefined;
+    return e ? { x: e.cx, y: e.cy, radius: e.radius } : null;
+  }
+
+  get locust(): { x: number; y: number } | null {
+    const e = this.active.find((x) => x.type === 'locust') as LocustEvent | undefined;
+    return e ? { x: e.x, y: e.y } : null;
   }
 }
