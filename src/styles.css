@@ -38,8 +38,26 @@ body {
     env(safe-area-inset-left);
 }
 
+/*
+ * Pointer-events strategy (kept in plain, unlayered CSS so it always wins
+ * over Tailwind's @layer rules): empty overlay areas let taps fall through
+ * to the world canvas, while panels and every interactive control capture
+ * them. These selectors out-specify `#ui-root > *`, so buttons are always
+ * tappable regardless of how deeply they're nested.
+ */
 #ui-root > * {
   pointer-events: none;
+}
+#ui-root .glass,
+#ui-root button,
+#ui-root a,
+#ui-root input,
+#ui-root select,
+#ui-root textarea,
+#ui-root label,
+#ui-root canvas,
+#ui-root [data-interactive] {
+  pointer-events: auto;
 }
 
 @layer components {
