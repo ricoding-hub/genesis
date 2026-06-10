@@ -96,7 +96,7 @@ export function ActiveEvents() {
   const active = snapshot?.activeEvents ?? [];
   if (active.length === 0) return null;
   return (
-    <div className="absolute top-16 max-md:top-[104px] left-1/2 -translate-x-1/2 flex flex-col gap-1.5 w-60 max-md:w-52 pointer-events-none z-10">
+    <div className="absolute top-16 max-md:top-[58px] left-1/2 -translate-x-1/2 flex flex-col gap-1.5 w-60 max-md:w-52 pointer-events-none z-10">
       {active.map((a) => (
         <div key={a.type} className="glass px-3 py-1.5 animate-slide-up">
           <div className="text-[11px] text-amber-200 mb-1 truncate">

@@ -20,7 +20,7 @@ export function Panel({
     <div
       className="glass absolute z-20 flex flex-col animate-slide-up
         right-3 top-16 bottom-[72px] w-[360px]
-        max-md:inset-x-0 max-md:top-0 max-md:bottom-0 max-md:w-auto max-md:rounded-none"
+        max-md:inset-x-1.5 max-md:top-14 max-md:bottom-[104px] max-md:w-auto"
     >
       <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 shrink-0">
         <span className="text-base">{icon}</span>

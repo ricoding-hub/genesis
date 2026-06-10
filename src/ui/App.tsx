@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { setLanguage } from '@/i18n';
 import { useStore } from '@/state/store';
 import { CivSection } from './CivilizationPanel';
 import { ConfirmModal } from './ConfirmModal';
@@ -10,6 +11,7 @@ import { GodSection } from './GodMode';
 import { Inspector } from './Inspector';
 import { Menu } from './Menu';
 import { Minimap } from './Minimap';
+import { MobileNav } from './MobileNav';
 import { Panel } from './Panel';
 import { ScenarioModal } from './ScenarioModal';
 import { TimeControls } from './TimeControls';
@@ -25,13 +27,16 @@ function DayNightIcon({ phase }: { phase: number }) {
   );
 }
 
-/** Read-only live stats. No actions here — those live in the Menu. */
+/** Live stats. On mobile it's a full-width top bar with a small utility
+ *  cluster on the right (world / language / help); on desktop, stats only. */
 function HUD() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const snapshot = useStore((s) => s.snapshot);
+  const setScenarioOpen = useStore((s) => s.setScenarioOpen);
+  const setHelpOpen = useStore((s) => s.setHelpOpen);
   if (!snapshot) return null;
   return (
-    <div className="glass absolute top-3 left-3 max-md:top-2 max-md:left-2 px-3 py-2 max-md:px-2.5 max-md:py-1.5 flex items-center gap-2.5 md:gap-3 text-xs md:text-sm animate-fade-in">
+    <div className="glass absolute top-3 left-3 max-md:top-2 max-md:left-2 max-md:right-2 px-3 py-2 max-md:px-2.5 max-md:py-1.5 flex items-center gap-2.5 md:gap-3 text-xs md:text-sm animate-fade-in z-20">
       <DayNightIcon phase={snapshot.dayPhase} />
       <span className="font-mono text-slate-300">
         {t('hud.day', { n: Math.floor(snapshot.worldAge / 90) + 1 })}
@@ -54,6 +59,23 @@ function HUD() {
       <span className="font-mono text-xs text-slate-500 hidden md:inline">
         {snapshot.fps} {t('hud.fps')}
       </span>
+
+      {/* Mobile-only utility cluster, pushed to the right edge. */}
+      <div className="md:hidden ml-auto flex items-center gap-1">
+        <button className="btn !px-2 !py-1" onClick={() => setScenarioOpen(true)} title={t('menu.world')}>
+          🌍
+        </button>
+        <button
+          className="btn !px-2 !py-1 font-semibold"
+          onClick={() => setLanguage(i18n.language === 'es' ? 'en' : 'es')}
+          title={t('lang.switch')}
+        >
+          {i18n.language === 'es' ? 'ES' : 'EN'}
+        </button>
+        <button className="btn !px-2 !py-1" onClick={() => setHelpOpen(true)} title={t('menu.help')}>
+          ?
+        </button>
+      </div>
     </div>
   );
 }
@@ -102,7 +124,7 @@ function Toast() {
   const toast = useStore((s) => s.toast);
   if (!toast) return null;
   return (
-    <div className="glass absolute bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 text-sm text-slate-200 animate-slide-up z-30 text-center max-w-[90vw]">
+    <div className="glass absolute bottom-20 max-md:bottom-[160px] left-1/2 -translate-x-1/2 px-4 py-2 text-sm text-slate-200 animate-slide-up z-30 text-center max-w-[90vw]">
       {toast}
     </div>
   );
@@ -131,7 +153,7 @@ function FirstRunHint() {
   }, [visible]);
   if (!visible) return null;
   return (
-    <div className="glass absolute bottom-32 left-1/2 -translate-x-1/2 px-4 py-2 text-xs text-slate-300 animate-fade-in flex items-center gap-3 max-w-[92vw] z-20">
+    <div className="glass absolute bottom-32 max-md:bottom-[208px] left-1/2 -translate-x-1/2 px-4 py-2 text-xs text-slate-300 animate-fade-in flex items-center gap-3 max-w-[92vw] z-20">
       <span>{t('firstRun.seeded')}</span>
       <span className="text-slate-500 hidden sm:inline">
         {isMobile ? t('firstRun.mobileHints') : t('firstRun.desktopHints', { g: 'G', l: 'L' })}
@@ -196,6 +218,7 @@ export function App() {
     <>
       <HUD />
       <Menu />
+      <MobileNav />
       <ActiveEvents />
       <PanelHost />
       <Inspector />

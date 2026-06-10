@@ -34,7 +34,7 @@ export function Inspector() {
   const agePct = Math.round((info.age / info.lifespan) * 100);
 
   return (
-    <div className="glass absolute top-16 left-3 w-64 max-md:left-2 max-md:right-2 max-md:top-auto max-md:w-auto max-md:bottom-[68px] p-3 animate-slide-up z-10">
+    <div className="glass absolute top-16 left-3 w-64 max-md:left-2 max-md:right-2 max-md:top-14 max-md:w-auto p-3 animate-slide-up z-10">
       <div className="flex items-center gap-2 mb-2">
         <span
           className="w-3.5 h-3.5 rounded-full border border-white/30"

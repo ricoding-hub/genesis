@@ -24,7 +24,7 @@ export function Menu() {
   const restart = () => setScenarioOpen(true);
 
   return (
-    <div className="glass absolute top-3 right-3 max-md:top-[52px] max-md:right-2 max-md:left-2 p-1.5 flex items-center gap-1 flex-wrap justify-end max-w-[70vw] max-md:max-w-none animate-fade-in z-20">
+    <div className="glass absolute top-3 right-3 p-1.5 hidden md:flex items-center gap-1 flex-wrap justify-end max-w-[70vw] animate-fade-in z-20">
       {ITEMS.map((it) => (
         <button
           key={it.id}
@@ -46,11 +46,11 @@ export function Menu() {
         <span className="hidden md:inline">{t('menu.world')}</span>
       </button>
       <button
-        className="btn"
+        className="btn font-semibold"
         onClick={() => setLanguage(i18n.language === 'es' ? 'en' : 'es')}
         title={t('lang.switch')}
       >
-        {i18n.language === 'es' ? '🇪🇸' : '🇬🇧'}
+        {i18n.language === 'es' ? 'ES' : 'EN'}
       </button>
       <button className="btn" onClick={() => setHelpOpen(true)} title={t('menu.help')}>
         ?

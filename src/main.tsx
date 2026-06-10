@@ -273,6 +273,17 @@ window.addEventListener(
   { passive: false },
 );
 
+// A long-press on the world canvas must never start an iOS text selection /
+// callout. Swallow touchstart on the canvas only — never on UI (that would
+// kill button taps).
+window.addEventListener(
+  'touchstart',
+  (e) => {
+    if (!onUI(e)) e.preventDefault();
+  },
+  { passive: false },
+);
+
 // ---------------- keyboard shortcuts ----------------
 
 const SPEEDS: SimSpeed[] = [1, 2, 5, 10];

@@ -12,7 +12,7 @@ export function TimeControls() {
   const { sim } = getEngine();
 
   return (
-    <div className="time-bar glass absolute bottom-4 max-md:bottom-2 left-1/2 -translate-x-1/2 px-3 max-md:px-2 py-2 max-md:py-1.5 flex items-center gap-1.5 max-md:gap-1 animate-fade-in">
+    <div className="time-bar glass absolute bottom-4 max-md:bottom-[60px] left-1/2 -translate-x-1/2 px-3 max-md:px-2 py-2 max-md:py-1.5 flex items-center gap-1.5 max-md:gap-1 animate-fade-in z-20">
       <button
         className="btn text-base px-3"
         onClick={() => {

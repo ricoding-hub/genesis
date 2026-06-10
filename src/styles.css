@@ -12,6 +12,13 @@ body {
   font-family: Inter, system-ui, sans-serif;
   height: 100%;
   -webkit-font-smoothing: antialiased;
+  /* Stop iOS Safari from treating taps/long-presses as text selection
+     (the "Copiar / Buscar con Google" callout that hijacks every touch). */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #canvas-root {
@@ -78,6 +85,14 @@ body {
   .panel-title {
     @apply text-[11px] font-semibold uppercase tracking-widest text-slate-400;
   }
+  /* Mobile bottom-tab button: icon over short label, large touch target. */
+  .tab-btn {
+    @apply flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-lg
+      text-[10px] font-medium text-slate-400 select-none cursor-pointer transition-colors;
+  }
+  .tab-btn-active {
+    @apply text-emerald-200 bg-emerald-500/15;
+  }
 }
 
 /* Range slider styling */
@@ -121,16 +136,26 @@ input[type='range']::-moz-range-thumb {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Safe-area aware bottom tab bar (sits at the very bottom on mobile). */
+.tab-bar {
+  padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+}
+
 /* Bigger touch targets on coarse-pointer devices */
 @media (pointer: coarse) {
   .btn {
     padding: 0.55rem 0.8rem;
     font-size: 0.8rem;
+    min-height: 40px;
+  }
+  .tab-btn {
+    min-height: 48px;
   }
   /* Time bar holds 6 buttons on a 390px screen — keep them snug. */
   .time-bar .btn {
-    padding: 0.5rem 0.55rem;
-    font-size: 0.72rem;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.74rem;
+    min-height: 40px;
   }
   input[type='range']::-webkit-slider-thumb {
     width: 18px;
