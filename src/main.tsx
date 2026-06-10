@@ -307,7 +307,7 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'g':
     case 'G':
-      store.toggleGodMode();
+      store.togglePanel('god');
       break;
     case 'l':
     case 'L':
@@ -319,17 +319,23 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'd':
     case 'D':
-      store.setDashboardOpen(!store.dashboardOpen);
+      store.togglePanel('stats');
       break;
     case 'c':
     case 'C':
-      store.setCivOpen(!store.civOpen);
+      store.togglePanel('civ');
+      break;
+    case 'e':
+    case 'E':
+      store.togglePanel('events');
       break;
     case 'Escape':
       store.setTool('none');
+      store.setPanel('none');
       store.setLabOpen(false);
-      store.setCivOpen(false);
+      store.setScenarioOpen(false);
       store.setHelpOpen(false);
+      store.closeConfirm();
       renderer.selected = null;
       store.setSelected(null);
       break;

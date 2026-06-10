@@ -1,6 +1,38 @@
 /** English strings. */
 export const en = {
-  lang: { es: 'Spanish', en: 'English', switch: 'Language' },
+  lang: { es: 'Spanish', en: 'English', switch: 'Change language' },
+
+  menu: {
+    god: 'God',
+    godHint: 'Divine tools: terraform, food, creatures, walls, blessing…',
+    events: 'Events',
+    eventsHint: 'Unleash catastrophes and miracles on the world',
+    stats: 'Stats',
+    statsHint: 'Population, gene and diversity charts',
+    civ: 'Civilization',
+    civHint: 'Human tribes, eras, faith and divine favor',
+    versus: 'Versus',
+    versusHint: 'Pit two sides against a wall with a live scoreboard',
+    world: 'World',
+    worldHint: 'Switch scenario or restart',
+    help: 'Help',
+    close: 'Close',
+  },
+
+  confirm: {
+    cancel: 'Cancel',
+    restartTitle: 'Restart the world',
+    restartBody: 'All current progress is lost and a fresh world begins. Continue?',
+    restartYes: 'Yes, restart',
+    endVersusTitle: 'End the Versus',
+    endVersusBody: 'The wall is removed and the contest ends. Continue?',
+    endVersusYes: 'End it',
+    eventTitle: 'Unleash {{name}}?',
+    eventBody: 'This will alter the world immediately.',
+    eventYes: 'Unleash',
+  },
+
+  events_extra: { activeTitle: 'In progress' },
 
   hud: {
     day: 'Day {{n}}',

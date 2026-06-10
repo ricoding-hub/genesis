@@ -79,7 +79,7 @@ export function Minimap() {
   if (!visible) return null;
 
   return (
-    <div className="glass absolute bottom-4 right-3 max-md:bottom-[64px] max-md:right-2 p-1.5 animate-fade-in">
+    <div className="glass absolute bottom-4 left-3 max-md:bottom-[64px] max-md:left-2 p-1.5 animate-fade-in z-10">
       <canvas
         ref={ref}
         width={MAP_W}

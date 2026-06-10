@@ -84,24 +84,15 @@ function TribeCard({ tribe }: { tribe: TribeInfo }) {
   );
 }
 
-export function CivilizationPanel() {
+export function CivSection() {
   const { t } = useTranslation();
-  const open = useStore((s) => s.civOpen);
-  const setOpen = useStore((s) => s.setCivOpen);
   const snapshot = useStore((s) => s.snapshot);
-  if (!open || !snapshot) return null;
+  if (!snapshot) return null;
 
   const { tribes, civLog } = snapshot;
 
   return (
-    <div className="glass absolute right-3 top-16 bottom-20 w-[360px] max-md:left-2 max-md:right-2 max-md:top-12 max-md:bottom-16 max-md:w-auto p-4 overflow-y-auto thin-scroll animate-slide-up">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">🏛️ {t('civ.title')}</h2>
-        <button className="btn" onClick={() => setOpen(false)}>
-          ✕
-        </button>
-      </div>
-
+    <div>
       {tribes.length === 0 ? (
         <div className="text-xs text-slate-400 leading-relaxed">{t('civ.none')}</div>
       ) : (

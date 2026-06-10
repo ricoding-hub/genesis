@@ -1,6 +1,38 @@
 /** Spanish strings (default language). */
 export const es = {
-  lang: { es: 'Español', en: 'Inglés', switch: 'Idioma' },
+  lang: { es: 'Español', en: 'Inglés', switch: 'Cambiar idioma' },
+
+  menu: {
+    god: 'Dios',
+    godHint: 'Herramientas divinas: terraformar, comida, criaturas, muros, bendición…',
+    events: 'Eventos',
+    eventsHint: 'Desata catástrofes y milagros sobre el mundo',
+    stats: 'Datos',
+    statsHint: 'Gráficas de población, genes y diversidad',
+    civ: 'Civilización',
+    civHint: 'Tribus humanas, eras, fe y favor divino',
+    versus: 'Versus',
+    versusHint: 'Enfrenta dos bandos con un muro y un marcador',
+    world: 'Mundo',
+    worldHint: 'Cambiar de escenario o reiniciar',
+    help: 'Ayuda',
+    close: 'Cerrar',
+  },
+
+  confirm: {
+    cancel: 'Cancelar',
+    restartTitle: 'Reiniciar el mundo',
+    restartBody: 'Se perderá todo el progreso actual y empezará un mundo nuevo. ¿Continuar?',
+    restartYes: 'Sí, reiniciar',
+    endVersusTitle: 'Terminar el Versus',
+    endVersusBody: 'Se quitará el muro y terminará la competición. ¿Continuar?',
+    endVersusYes: 'Terminar',
+    eventTitle: '¿Desatar {{name}}?',
+    eventBody: 'Esto alterará el mundo de inmediato.',
+    eventYes: 'Desatar',
+  },
+
+  events_extra: { activeTitle: 'En curso' },
 
   hud: {
     day: 'Día {{n}}',

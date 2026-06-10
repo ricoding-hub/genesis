@@ -106,8 +106,7 @@ export function GeneticLab() {
   const setGenes = useStore((s) => s.setLabGenes);
   const setSpawnGenes = useStore((s) => s.setSpawnGenes);
   const setTool = useStore((s) => s.setTool);
-  const toggleGodMode = useStore((s) => s.toggleGodMode);
-  const godModeOpen = useStore((s) => s.godModeOpen);
+  const setPanel = useStore((s) => s.setPanel);
   const showToast = useStore((s) => s.showToast);
 
   if (!open) return null;
@@ -119,13 +118,21 @@ export function GeneticLab() {
   ];
 
   return (
-    <div className="glass absolute right-3 top-1/2 -translate-y-1/2 w-[340px] max-h-[88vh] max-md:inset-x-2 max-md:top-12 max-md:bottom-16 max-md:w-auto max-md:max-h-none max-md:translate-y-0 p-4 animate-slide-up overflow-y-auto thin-scroll">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">🧪 {t('lab.title')}</h2>
-        <button className="btn" onClick={() => setOpen(false)}>
-          ✕
-        </button>
-      </div>
+    <div
+      className="absolute inset-0 z-30 bg-black/55 flex items-center justify-center p-4 animate-fade-in"
+      style={{ pointerEvents: 'auto' }}
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="glass w-[340px] max-h-[90vh] max-md:w-full p-4 overflow-y-auto thin-scroll"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold">🧪 {t('lab.title')}</h2>
+          <button className="btn" onClick={() => setOpen(false)}>
+            ✕
+          </button>
+        </div>
 
       <PhenotypePreview genes={genes} />
       <div className="flex justify-between text-[10px] text-slate-400 font-mono mt-1 mb-3">
@@ -185,14 +192,15 @@ export function GeneticLab() {
         className="btn btn-active w-full mt-4 py-2.5 text-sm"
         onClick={() => {
           setSpawnGenes({ ...genes });
+          setPanel('god');
           setTool('spawn');
-          if (!godModeOpen) toggleGodMode();
           setOpen(false);
           showToast(t('lab.releaseHint'));
         }}
       >
         🌍 {t('lab.release')}
       </button>
+      </div>
     </div>
   );
 }

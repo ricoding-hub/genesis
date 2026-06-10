@@ -68,6 +68,7 @@ npx gh-pages -d dist
 | `M` | Minimap |
 | `D` | Evolution Dashboard |
 | `C` | Civilization panel |
+| `E` | Events panel |
 
 ## 🛠 Tech stack
 

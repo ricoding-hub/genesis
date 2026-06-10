@@ -119,12 +119,10 @@ function SpeciationTimeline({ species }: { species: SpeciesInfo[] }) {
   );
 }
 
-export function Dashboard() {
+export function DashboardSection() {
   const { t } = useTranslation();
-  const open = useStore((s) => s.dashboardOpen);
-  const setOpen = useStore((s) => s.setDashboardOpen);
   const snapshot = useStore((s) => s.snapshot);
-  if (!open || !snapshot) return null;
+  if (!snapshot) return null;
 
   const livingSpecies = snapshot.species
     .filter((s) => s.population > 0)
@@ -132,14 +130,7 @@ export function Dashboard() {
     .slice(0, 6);
 
   return (
-    <div className="glass absolute left-3 top-16 bottom-20 w-[400px] max-md:left-2 max-md:right-2 max-md:top-12 max-md:bottom-16 max-md:w-auto p-4 overflow-y-auto thin-scroll animate-slide-up">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">📊 {t('dashboard.title')}</h2>
-        <button className="btn" onClick={() => setOpen(false)}>
-          ✕
-        </button>
-      </div>
-
+    <div>
       <div className="grid grid-cols-4 gap-2 mb-4 text-center">
         {[
           ['dashboard.generation', snapshot.generation],

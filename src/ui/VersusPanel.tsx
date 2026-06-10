@@ -40,32 +40,23 @@ function Side({ s, name, align }: { s: VersusSideStats; name: string; align: str
   );
 }
 
-export function VersusPanel() {
+export function VersusSection() {
   const { t } = useTranslation();
-  const open = useStore((s) => s.versusOpen);
-  const setOpen = useStore((s) => s.setVersusOpen);
   const snapshot = useStore((s) => s.snapshot);
+  const askConfirm = useStore((s) => s.askConfirm);
   const { sim } = getEngine();
   const versus = snapshot?.versus;
-
-  if (!open) return null;
 
   // Setup screen when no versus is running.
   if (!versus || !versus.active) {
     return (
-      <div className="glass absolute left-1/2 top-20 -translate-x-1/2 w-[300px] p-4 animate-slide-up">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold">⚔️ {t('versus.title')}</h2>
-          <button className="btn" onClick={() => setOpen(false)}>
-            ✕
-          </button>
-        </div>
+      <div>
         <div className="panel-title mb-2">{t('versus.setup')}</div>
         <div className="flex flex-col gap-1.5">
           {MATCHUPS.map((m) => (
             <button
               key={m}
-              className="btn text-left"
+              className="btn text-left py-2.5"
               onClick={() => {
                 sim.startVersus(m);
                 sim.paused = false;
@@ -84,20 +75,9 @@ export function VersusPanel() {
   const maxKnow = Math.max(left.knowledge, right.knowledge, 1);
 
   return (
-    <div className="glass absolute left-1/2 top-14 -translate-x-1/2 w-[320px] p-3 animate-slide-up">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-semibold">⚔️ {t(`versus.${versus.matchup}`)}</h2>
-        <button
-          className="btn !px-1.5 !py-0.5"
-          onClick={() => {
-            sim.endVersus();
-            setOpen(false);
-          }}
-        >
-          ✕
-        </button>
-      </div>
-      <div className="flex items-center mb-2">
+    <div>
+      <div className="text-xs font-semibold text-center mb-3">{t(`versus.${versus.matchup}`)}</div>
+      <div className="flex items-center mb-3">
         <Side s={left} name={t('versus.left')} align="text-left" />
         <span className="text-slate-500 text-xs px-2">VS</span>
         <Side s={right} name={t('versus.right')} align="text-right" />
@@ -106,6 +86,20 @@ export function VersusPanel() {
       <Bar label={t('versus.knowledge')} a={left.knowledge} b={right.knowledge} max={maxKnow} />
       <Bar label={t('versus.avgSize')} a={left.avgSize} b={right.avgSize} max={1} />
       <Bar label={t('versus.avgIntel')} a={left.avgIntel} b={right.avgIntel} max={1} />
+      <button
+        className="btn btn-danger w-full mt-4 py-2.5"
+        onClick={() =>
+          askConfirm({
+            titleKey: 'confirm.endVersusTitle',
+            bodyKey: 'confirm.endVersusBody',
+            confirmKey: 'confirm.endVersusYes',
+            danger: true,
+            onConfirm: () => sim.endVersus(),
+          })
+        }
+      >
+        {t('versus.end')}
+      </button>
     </div>
   );
 }

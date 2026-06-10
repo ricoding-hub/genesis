@@ -10,16 +10,25 @@ import {
 } from '@/types';
 import { GENE_PRESETS } from '@/engine/Genetics';
 
+/** Which single docked panel is open (only one at a time → never overlap). */
+export type PanelId = 'none' | 'god' | 'events' | 'stats' | 'civ' | 'versus';
+
+export interface ConfirmRequest {
+  titleKey: string;
+  bodyKey: string;
+  confirmKey: string;
+  params?: Record<string, string | number>;
+  danger?: boolean;
+  onConfirm: () => void;
+}
+
 interface UIState {
   snapshot: StatsSnapshot | null;
+  panel: PanelId;
   tool: GodTool;
-  godModeOpen: boolean;
   brushBiome: Biome;
   brushRadius: number;
   labOpen: boolean;
-  dashboardOpen: boolean;
-  civOpen: boolean;
-  versusOpen: boolean;
   scenarioOpen: boolean;
   minimapVisible: boolean;
   helpOpen: boolean;
@@ -32,16 +41,16 @@ interface UIState {
   cohortProfile: CohortProfile;
   selected: CreatureInfo | null;
   toast: string | null;
+  confirm: ConfirmRequest | null;
 
   setSnapshot(s: StatsSnapshot): void;
+  /** Open a panel (or 'none' to close). Selecting a tool stays valid only in god. */
+  setPanel(p: PanelId): void;
+  togglePanel(p: PanelId): void;
   setTool(t: GodTool): void;
-  toggleGodMode(): void;
   setBrushBiome(b: Biome): void;
   setBrushRadius(r: number): void;
   setLabOpen(open: boolean): void;
-  setDashboardOpen(open: boolean): void;
-  setCivOpen(open: boolean): void;
-  setVersusOpen(open: boolean): void;
   setScenarioOpen(open: boolean): void;
   toggleMinimap(): void;
   setHelpOpen(open: boolean): void;
@@ -52,20 +61,19 @@ interface UIState {
   setCohortProfile(p: CohortProfile): void;
   setSelected(c: CreatureInfo | null): void;
   showToast(msg: string): void;
+  askConfirm(req: ConfirmRequest): void;
+  closeConfirm(): void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useStore = create<UIState>((set) => ({
   snapshot: null,
+  panel: 'none',
   tool: 'none',
-  godModeOpen: false,
   brushBiome: Biome.Forest,
   brushRadius: 70,
   labOpen: false,
-  dashboardOpen: false,
-  civOpen: false,
-  versusOpen: false,
   scenarioOpen: false,
   minimapVisible: true,
   helpOpen: false,
@@ -76,20 +84,20 @@ export const useStore = create<UIState>((set) => ({
   cohortProfile: 'balanced',
   selected: null,
   toast: null,
+  confirm: null,
 
   setSnapshot: (snapshot) => set({ snapshot }),
+  setPanel: (panel) =>
+    set((s) => ({ panel, tool: panel === 'god' ? s.tool : 'none' })),
+  togglePanel: (p) =>
+    set((s) => {
+      const panel = s.panel === p ? 'none' : p;
+      return { panel, tool: panel === 'god' ? s.tool : 'none' };
+    }),
   setTool: (tool) => set({ tool }),
-  toggleGodMode: () =>
-    set((s) => ({
-      godModeOpen: !s.godModeOpen,
-      tool: s.godModeOpen ? 'none' : s.tool,
-    })),
   setBrushBiome: (brushBiome) => set({ brushBiome }),
   setBrushRadius: (brushRadius) => set({ brushRadius }),
   setLabOpen: (labOpen) => set({ labOpen }),
-  setDashboardOpen: (dashboardOpen) => set({ dashboardOpen }),
-  setCivOpen: (civOpen) => set({ civOpen }),
-  setVersusOpen: (versusOpen) => set({ versusOpen }),
   setScenarioOpen: (scenarioOpen) => set({ scenarioOpen }),
   toggleMinimap: () => set((s) => ({ minimapVisible: !s.minimapVisible })),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
@@ -104,4 +112,6 @@ export const useStore = create<UIState>((set) => ({
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => set({ toast: null }), 3200);
   },
+  askConfirm: (confirm) => set({ confirm }),
+  closeConfirm: () => set({ confirm: null }),
 }));
