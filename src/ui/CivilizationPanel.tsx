@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useStore } from '@/state/store';
+import { worldYears } from '@/utils/time';
 import { Era, ERA_ICONS, TribeInfo } from '@/types';
 
 const ERA_KEYS: Record<Era, string> = {
@@ -72,11 +73,8 @@ function TribeCard({ tribe }: { tribe: TribeInfo }) {
         <span className="text-[9px] font-mono text-slate-500">{tribe.favor.toFixed(0)}</span>
       </div>
       <div className="flex items-center gap-3 text-[10px] text-slate-400">
-        {tribe.deity ? (
-          <span>⛩️ {tribe.deity}</span>
-        ) : (
-          <span className="opacity-50">{t('civ.noFaith')}</span>
-        )}
+        {/* Faith is only mentioned once a tribe has actually discovered it. */}
+        {tribe.deity && <span>⛩️ {tribe.deity}</span>}
         {tribe.explorers > 0 && <span>🚩 {tribe.explorers}</span>}
         <span className="ml-auto font-mono">{tribe.knowledge.toFixed(0)} 🧠</span>
       </div>
@@ -113,7 +111,7 @@ export function CivSection() {
               <span className="shrink-0">{m.icon}</span>
               <span className="text-slate-300">{t(`milestone.${m.key}`, m.params)}</span>
               <span className="text-slate-500 font-mono ml-auto shrink-0">
-                {t('civ.days', { n: Math.floor(m.t / 90) + 1 })}
+                {t('civ.years', { n: worldYears(m.t) })}
               </span>
             </div>
           ))

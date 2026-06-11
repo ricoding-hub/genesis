@@ -25,6 +25,7 @@ import {
   randomGenes,
 } from './Genetics';
 import { SpatialGrid } from './SpatialGrid';
+import { ageYears, expectancyYears } from '@/utils/time';
 
 /** Events the random scheduler may fire (skews toward drama, some boons). */
 const RANDOM_EVENT_POOL: EventType[] = [
@@ -339,6 +340,7 @@ export class Simulation {
     if (parentTribe >= 0 && this.isHumanoid(child)) {
       child.tribeId = parentTribe;
       child.explorer = child.genes.vision > 0.62 && child.genes.speed > 0.55 && Math.random() < 0.18;
+      child.name = this.culture.nameFor(parentTribe, child.sex);
     }
     this.creatures.push(child);
 
@@ -469,6 +471,14 @@ export class Simulation {
     if (this.recentDeaths.length < 40) this.recentDeaths.push({ x, y, color });
   }
 
+  /** Send a "bible" bearing a name; the nearest tribe adopts it as sacred. */
+  sendBible(x: number, y: number, name: string): string | null {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    this.particlesBurst(x, y, '#ffe48a');
+    return this.culture.receiveBible(x, y, trimmed, this.worldAge);
+  }
+
   killZone(x: number, y: number, radius: number): void {
     const r2 = radius * radius;
     for (const c of this.creatures) {
@@ -512,6 +522,7 @@ export class Simulation {
 
   creatureInfo(c: Creature): CreatureInfo {
     const tribe = c.tribeId >= 0 ? this.culture.tribe(c.tribeId) : undefined;
+    const archetype = this.species.species[c.speciesId]?.archetype ?? 'lizard';
     return {
       id: c.id,
       genes: { ...c.genes },
@@ -523,9 +534,12 @@ export class Simulation {
       generation: c.generation,
       speciesId: c.speciesId,
       speciesColor: this.species.speciesColor(c.speciesId),
-      archetype: this.species.species[c.speciesId]?.archetype ?? 'lizard',
+      archetype,
       children: c.children,
       sex: c.sex,
+      ageYears: ageYears(archetype, c.genes.lifespan, c.age, c.lifespan),
+      expectancyYears: expectancyYears(archetype, c.genes.lifespan),
+      name: c.name,
       tribeName: tribe?.name ?? null,
       tribeEra: tribe ? this.culture.tribeEra(c.tribeId) : null,
       deity: tribe?.deity ?? null,

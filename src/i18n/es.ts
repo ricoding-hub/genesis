@@ -36,6 +36,7 @@ export const es = {
 
   hud: {
     day: 'Día {{n}}',
+    year: 'Año {{n}}',
     alive: 'vivos',
     gen: 'gen',
     species: 'especies',
@@ -43,6 +44,19 @@ export const es = {
     stats: 'Datos',
     civ: 'Civ',
     help: 'Ayuda y atajos',
+  },
+
+  tip: {
+    year: 'Año del mundo (1 año ≈ unos segundos de simulación)',
+    alive: 'Criaturas vivas ahora mismo',
+    gen: 'Generación más alta nacida',
+    species: 'Especies vivas distintas',
+    fps: 'Fotogramas por segundo',
+  },
+
+  chip: {
+    options: 'Abrir opciones de la herramienta',
+    cancel: 'Cancelar herramienta',
   },
 
   controls: {
@@ -77,6 +91,9 @@ export const es = {
     blessHint: 'Lluvia de comida y curación; sube tu Favor',
     smite: 'Castigo',
     smiteHint: 'Un rayo divino fulmina a quien toques',
+    bible: 'Biblia',
+    bibleHint: 'Escribe un nombre y tócalos: lo adoptarán como sagrado',
+    bibleName: 'Nombre sagrado',
     paintBiome: 'Pintar bioma',
     brushSize: 'Tamaño del pincel',
     randomDNA: 'ADN aleatorio',
@@ -169,6 +186,7 @@ export const es = {
   inspector: {
     gen: 'gen {{n}}',
     offspring: '{{n}} crías',
+    years: '{{a}} años · esperanza ~{{e}}',
     energy: 'Energía',
     age: 'Edad',
     worships: 'adora a {{deity}}',
@@ -182,9 +200,8 @@ export const es = {
     none: 'Aún no ha despertado ninguna tribu. Los humanoides deben sobrevivir y reunirse antes de que prenda la Chispa de Sapiencia — o usa la herramienta divina Fundar tribu para asentar una ahora.',
     chronicle: 'Crónica',
     empty: 'La historia aún está por escribirse…',
-    noFaith: 'sin fe todavía',
     favor: 'Favor',
-    days: '{{n}}d',
+    years: 'Año {{n}}',
   },
 
   milestone: {
@@ -199,6 +216,7 @@ export const es = {
     sacrifice: '{{tribe}} te ofreció un sacrificio',
     bless: 'Bendijiste a {{tribe}} con tu favor',
     smite: 'Castigaste a {{tribe}} con tu ira',
+    bible: '{{tribe}} recibió tu Biblia: veneran el nombre {{name}}',
   },
 
   era: {
@@ -337,6 +355,8 @@ export const es = {
     fearWrath: '{{tribe}} tiembla ante tu ira',
     templeBuilt: '{{tribe}} ha alzado un templo en tu nombre',
     sacrificeMade: '{{tribe}} te ofrece un sacrificio',
+    bibleNeedsName: 'Escribe primero un nombre para la Biblia',
+    bibleSent: '📖 {{tribe}} venera ahora el nombre {{name}}',
   },
 
   help: {

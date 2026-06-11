@@ -45,6 +45,50 @@ const TRIBE_SUFFIX = ['kin', 'born', 'folk', 'ward', 'wood', 'clan', 'song', 'ho
 const DEITY_A = ['Au', 'So', 'Ve', 'Kor', 'Lu', 'Ny', 'Ra', 'Xa', 'Mor', 'Sel'];
 const DEITY_B = ['rel', 'luna', 'thys', 'ros', 'mira', 'gantu', 'dor', 'wyn', 'eth', 'ka'];
 
+/**
+ * Personal name pools by cultural tier. Stone-age folk grunt monosyllables;
+ * as knowledge grows, names get longer and softer. Female endings flavor
+ * the final syllable.
+ */
+const NAME_STONE = ['Ug', 'Bok', 'Gra', 'Mok', 'Tur', 'Zug', 'Kra', 'Dun', 'Gor', 'Hax'];
+const NAME_MID_A = ['Ka', 'Bo', 'Tu', 'Ra', 'Mi', 'Da', 'Lo', 'Su', 'Ne', 'Va'];
+const NAME_MID_B = ['ran', 'mok', 'tar', 'lin', 'dor', 'gar', 'vek', 'nul', 'rim', 'bas'];
+const NAME_HIGH_A = ['Ael', 'Cor', 'Ser', 'Tal', 'Mir', 'Or', 'Lys', 'Ver', 'Nal', 'El'];
+const NAME_HIGH_B = ['ian', 'andro', 'ethe', 'ione', 'avel', 'oren', 'isse', 'ara', 'emir', 'ude'];
+
+/** Generate an era-appropriate personal name. */
+function eraName(era: Era, sex: 'M' | 'F'): string {
+  let base: string;
+  if (era <= Era.Fire) {
+    base = pick(NAME_STONE);
+  } else if (era <= Era.Agriculture) {
+    base = pick(NAME_MID_A) + pick(NAME_MID_B);
+  } else {
+    base = pick(NAME_HIGH_A) + pick(NAME_HIGH_B);
+  }
+  if (sex === 'F') {
+    // Feminine flavor: soften the ending.
+    if (/[bkdgrxz]$/i.test(base)) base += 'a';
+    else if (base.endsWith('o')) base = base.slice(0, -1) + 'a';
+    else if (!/[aei]$/i.test(base)) base += 'i';
+  }
+  return base;
+}
+
+/** Variant of a sacred name for a new believer ("Ricardo II", "Ricarda"…). */
+function sacredVariant(sacred: string, sex: 'M' | 'F'): string {
+  let base = sacred;
+  if (sex === 'F') {
+    if (base.endsWith('o')) base = base.slice(0, -1) + 'a';
+    else if (!/[a]$/i.test(base)) base += 'a';
+  }
+  const r = Math.random();
+  if (r < 0.5) return base;
+  if (r < 0.75) return `${base} II`;
+  if (r < 0.9) return `${base} III`;
+  return `${base} el Joven`;
+}
+
 let nextTribeId = 0;
 let nextStructureId = 1;
 
@@ -52,6 +96,8 @@ interface Tribe {
   id: number;
   name: string;
   deity: string | null;
+  /** Name received from the player-god's "bible"; believers adopt it. */
+  sacredName: string | null;
   color: string;
   knowledge: number;
   era: Era;
@@ -112,6 +158,7 @@ export class Culture {
       id,
       name,
       deity: null,
+      sacredName: null,
       color: hsl(rand(0, 360), 0.55, 0.62),
       knowledge: 0,
       era: Era.Stone,
@@ -225,6 +272,8 @@ export class Culture {
       }
       tribe.population++;
       if (c.explorer) tribe.explorers++;
+      // Every tribe member carries a name fitting their culture.
+      if (!c.name) c.name = this.nameFor(tribe.id, c.sex);
 
       // Communication: more nearby kin → faster collective learning.
       let kin = 0;
@@ -522,6 +571,32 @@ export class Culture {
     t.population = Math.max(t.population, MIN_TRIBE);
     this.advanceEra(t, worldAge);
     t.favor = 82; // adore you enough to raise a temple
+  }
+
+  /** Era-appropriate personal name; believers may inherit the sacred name. */
+  nameFor(tribeId: number, sex: 'M' | 'F'): string {
+    const tribe = this.tribes.get(tribeId);
+    if (!tribe) return eraName(Era.Stone, sex);
+    if (tribe.sacredName && Math.random() < 0.6) {
+      return sacredVariant(tribe.sacredName, sex);
+    }
+    return eraName(tribe.era, sex);
+  }
+
+  /**
+   * The player-god sends a "bible" bearing a name. The nearest tribe adopts
+   * it as sacred: favor rises and new believers are named after it.
+   */
+  receiveBible(x: number, y: number, name: string, worldAge: number): string | null {
+    const id = this.nearestTribeId(x, y);
+    if (id < 0) return null;
+    const t = this.tribes.get(id)!;
+    t.sacredName = name;
+    t.favor = clamp(t.favor + 15, 0, 100);
+    // Scripture is knowledge: a nudge toward (or deepening of) the faith.
+    t.knowledge += 12;
+    this.log('📖', 'bible', { tribe: t.name, name }, worldAge);
+    return t.name;
   }
 
   /** A divine blessing was poured on a place — nearby tribes rejoice. */

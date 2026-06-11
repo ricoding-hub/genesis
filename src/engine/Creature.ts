@@ -69,6 +69,8 @@ export class Creature {
   readonly sex: Sex;
   /** Praying to the player-god (temple) — for the prayer visual. */
   praying = false;
+  /** Personal name, given by their tribe's culture (humanoids only). */
+  name: string | null = null;
 
   constructor(
     x: number,

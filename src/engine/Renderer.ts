@@ -187,6 +187,11 @@ export class Renderer {
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
     }
 
+    // Biome doodads: scattered mini-sprites that give each biome character.
+    if (biome !== Biome.Wasteland && !this.sim.world.walls[i]) {
+      this.bakeDoodad(ctx, biome, x, y, rng);
+    }
+
     // God-built wall: stone block with a bevel, drawn over the biome.
     if (this.sim.world.walls[i]) {
       ctx.fillStyle = '#5a5550';
@@ -198,6 +203,167 @@ export class Renderer {
       ctx.strokeStyle = 'rgba(0,0,0,0.3)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+    }
+  }
+
+  /**
+   * Scatter a small, biome-specific decoration into the baked terrain: trees,
+   * cacti, flowers, reeds, boulders… Deterministic per tile via `rng`, low
+   * probability so the world stays readable.
+   */
+  private bakeDoodad(
+    ctx: CanvasRenderingContext2D,
+    biome: Biome,
+    x: number,
+    y: number,
+    rng: () => number,
+  ): void {
+    const roll = rng();
+    const px = x + 3 + rng() * (TILE_SIZE - 6);
+    const py = y + 4 + rng() * (TILE_SIZE - 7);
+
+    const tree = (trunk: string, canopy: string, h: number, w: number) => {
+      ctx.fillStyle = trunk;
+      ctx.fillRect(px - 0.8, py, 1.6, h * 0.5);
+      ctx.fillStyle = canopy;
+      ctx.beginPath();
+      ctx.arc(px, py - h * 0.2, w, 0, TAU);
+      ctx.fill();
+    };
+    const pine = (canopy: string, h: number) => {
+      ctx.fillStyle = '#4a3a28';
+      ctx.fillRect(px - 0.7, py, 1.4, h * 0.35);
+      ctx.fillStyle = canopy;
+      ctx.beginPath();
+      ctx.moveTo(px, py - h);
+      ctx.lineTo(px - h * 0.42, py);
+      ctx.lineTo(px + h * 0.42, py);
+      ctx.closePath();
+      ctx.fill();
+    };
+    const tuft = (color: string) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.8;
+      for (let k = -1; k <= 1; k++) {
+        ctx.beginPath();
+        ctx.moveTo(px + k, py + 2);
+        ctx.lineTo(px + k * 1.4, py - 2.5);
+        ctx.stroke();
+      }
+    };
+    const rock = (color: string, s: number) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(px, py, s, s * 0.7, 0, 0, TAU);
+      ctx.fill();
+    };
+
+    switch (biome) {
+      case Biome.Forest:
+        if (roll < 0.5) pine(rng() < 0.5 ? '#214a2a' : '#2c5e36', 7 + rng() * 3);
+        else if (roll < 0.62) tree('#4a3a28', '#356b3c', 7, 3 + rng() * 1.5);
+        break;
+      case Biome.Jungle:
+        if (roll < 0.6) tree('#5a4326', rng() < 0.5 ? '#1f6b34' : '#2c7a3c', 8, 3.5 + rng() * 2);
+        else if (roll < 0.78) tuft('#2f8c45');
+        break;
+      case Biome.Grassland:
+        if (roll < 0.16)
+          rock(rng() < 0.33 ? '#e8d24a' : rng() < 0.5 ? '#e87aa0' : '#9a7ae8', 1.4);
+        else if (roll < 0.4) tuft('#6fae54');
+        break;
+      case Biome.Savanna:
+        if (roll < 0.12) {
+          // Acacia: flat-topped tree.
+          ctx.fillStyle = '#6a5326';
+          ctx.fillRect(px - 0.8, py - 1, 1.6, 5);
+          ctx.fillStyle = '#7d8c3a';
+          ctx.beginPath();
+          ctx.ellipse(px, py - 2, 4.5, 1.8, 0, 0, TAU);
+          ctx.fill();
+        } else if (roll < 0.42) tuft('#b0a44e');
+        break;
+      case Biome.Desert:
+        if (roll < 0.1) {
+          // Saguaro cactus.
+          ctx.fillStyle = '#3f7d3a';
+          ctx.fillRect(px - 1, py - 5, 2, 8);
+          ctx.fillRect(px - 3, py - 2, 2, 1.6);
+          ctx.fillRect(px - 3, py - 4, 1.6, 2.4);
+          ctx.fillRect(px + 1, py - 1, 2, 1.6);
+          ctx.fillRect(px + 2.6, py - 3, 1.6, 2.4);
+        } else if (roll < 0.16) rock('#caa86a', 1.6);
+        break;
+      case Biome.Tundra:
+        if (roll < 0.22) pine('#5a7a66', 6 + rng() * 2);
+        else if (roll < 0.34) rock('#cfdbe2', 1.8);
+        break;
+      case Biome.Mountain:
+        if (roll < 0.3) rock(rng() < 0.5 ? '#8a8480' : '#6b6560', 2 + rng() * 1.5);
+        break;
+      case Biome.Swamp:
+        if (roll < 0.4) tuft(rng() < 0.5 ? '#3c6e3a' : '#587a3a');
+        else if (roll < 0.5) rock('#3a5a3e', 1.6);
+        break;
+      case Biome.Shore:
+        if (roll < 0.06) tree('#6a5326', '#3a7d44', 6, 2.5); // lone palm
+        else if (roll < 0.12) rock('#e8dcc0', 1.2); // shell/pebble
+        break;
+      default:
+        break;
+    }
+  }
+
+  /** Food appearance varies by biome: berries, grain, mushrooms, fruit… */
+  private drawFoodSprite(
+    ctx: CanvasRenderingContext2D,
+    biome: Biome,
+    x: number,
+    y: number,
+    r: number,
+  ): void {
+    const dot = (color: string, rr = r) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, rr, 0, TAU);
+      ctx.fill();
+    };
+    switch (biome) {
+      case Biome.Forest:
+      case Biome.Jungle:
+        // Berry cluster (three red dots).
+        ctx.fillStyle = '#e0563f';
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1.4]] as const) {
+          ctx.beginPath();
+          ctx.arc(x + dx * r * 0.8, y + dy * r * 0.8, r * 0.7, 0, TAU);
+          ctx.fill();
+        }
+        break;
+      case Biome.Grassland:
+      case Biome.Savanna:
+        // Golden grain.
+        dot('#e8c84a');
+        break;
+      case Biome.Desert:
+        // Cactus fruit (magenta).
+        dot('#d65a9a');
+        break;
+      case Biome.Tundra:
+        // Frost berries (blue).
+        dot('#6aa0e0');
+        break;
+      case Biome.Swamp:
+        // Mushroom: stem + red cap.
+        ctx.fillStyle = '#e8e0d0';
+        ctx.fillRect(x - 0.6, y, 1.2, r);
+        ctx.fillStyle = '#d05050';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.95, Math.PI, TAU);
+        ctx.fill();
+        break;
+      default:
+        dot('#9fdf6a');
+        break;
     }
   }
 
@@ -303,15 +469,20 @@ export class Renderer {
     const y1 = rect.y + rect.h + pad;
     const sim = this.sim;
 
-    // Food.
-    ctx.fillStyle = '#9fdf6a';
+    // Food — colored/shaped by the biome it grew in (berries, grain, fungi…).
+    const drawFood = this.camera.dzoom > 0.6;
     for (const f of sim.world.foods) {
       if (f.x < x0 || f.x > x1 || f.y < y0 || f.y > y1) continue;
       const r = 1.4 + f.amount * 1.1;
-      ctx.globalAlpha = Math.min(1, f.ttl / 12) * 0.9;
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, r, 0, TAU);
-      ctx.fill();
+      ctx.globalAlpha = Math.min(1, f.ttl / 12) * 0.95;
+      if (drawFood) {
+        this.drawFoodSprite(ctx, sim.world.biomeAt(f.x, f.y), f.x, f.y, r);
+      } else {
+        ctx.fillStyle = '#9fdf6a';
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, r, 0, TAU);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
 

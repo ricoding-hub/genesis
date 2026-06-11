@@ -39,6 +39,8 @@ interface UIState {
   cohortSex: CohortSex;
   cohortCount: number;
   cohortProfile: CohortProfile;
+  /** Name carried by the next "bible" sent with the bible tool. */
+  bibleName: string;
   selected: CreatureInfo | null;
   toast: string | null;
   confirm: ConfirmRequest | null;
@@ -59,6 +61,7 @@ interface UIState {
   setCohortSex(s: CohortSex): void;
   setCohortCount(n: number): void;
   setCohortProfile(p: CohortProfile): void;
+  setBibleName(name: string): void;
   setSelected(c: CreatureInfo | null): void;
   showToast(msg: string): void;
   askConfirm(req: ConfirmRequest): void;
@@ -82,17 +85,21 @@ export const useStore = create<UIState>((set) => ({
   cohortSex: 'mixed',
   cohortCount: 12,
   cohortProfile: 'balanced',
+  bibleName: '',
   selected: null,
   toast: null,
   confirm: null,
 
   setSnapshot: (snapshot) => set({ snapshot }),
+  // Keep the armed tool when staying in god or just closing the panel (the
+  // mobile flow arms a tool then closes the panel to use it on the map). Only
+  // navigating to a *different* section cancels the tool.
   setPanel: (panel) =>
-    set((s) => ({ panel, tool: panel === 'god' ? s.tool : 'none' })),
+    set((s) => ({ panel, tool: panel === 'god' || panel === 'none' ? s.tool : 'none' })),
   togglePanel: (p) =>
     set((s) => {
       const panel = s.panel === p ? 'none' : p;
-      return { panel, tool: panel === 'god' ? s.tool : 'none' };
+      return { panel, tool: panel === 'god' || panel === 'none' ? s.tool : 'none' };
     }),
   setTool: (tool) => set({ tool }),
   setBrushBiome: (brushBiome) => set({ brushBiome }),
@@ -106,6 +113,7 @@ export const useStore = create<UIState>((set) => ({
   setCohortSex: (cohortSex) => set({ cohortSex }),
   setCohortCount: (cohortCount) => set({ cohortCount }),
   setCohortProfile: (cohortProfile) => set({ cohortProfile }),
+  setBibleName: (bibleName) => set({ bibleName }),
   setSelected: (selected) => set({ selected }),
   showToast: (toast) => {
     set({ toast });

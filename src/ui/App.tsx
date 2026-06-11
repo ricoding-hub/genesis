@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { setLanguage } from '@/i18n';
+import { worldYears } from '@/utils/time';
 import { useStore } from '@/state/store';
 import { CivSection } from './CivilizationPanel';
 import { ConfirmModal } from './ConfirmModal';
 import { DashboardSection } from './Dashboard';
 import { ActiveEvents, EventsSection } from './EventsPanel';
+import { ActiveToolChip } from './ActiveToolChip';
 import { GeneticLab } from './GeneticLab';
 import { GodSection } from './GodMode';
 import { Inspector } from './Inspector';
@@ -38,25 +40,25 @@ function HUD() {
   return (
     <div className="glass absolute top-3 left-3 max-md:top-2 max-md:left-2 max-md:right-2 px-3 py-2 max-md:px-2.5 max-md:py-1.5 flex items-center gap-2.5 md:gap-3 text-xs md:text-sm animate-fade-in z-20">
       <DayNightIcon phase={snapshot.dayPhase} />
-      <span className="font-mono text-slate-300">
-        {t('hud.day', { n: Math.floor(snapshot.worldAge / 90) + 1 })}
+      <span className="font-mono text-slate-300" data-tip={t('tip.year')} title={t('tip.year')}>
+        {t('hud.year', { n: worldYears(snapshot.worldAge) })}
       </span>
       <span className="text-slate-500 hidden sm:inline">·</span>
-      <span>
+      <span data-tip={t('tip.alive')} title={t('tip.alive')}>
         <span className="text-emerald-300 font-semibold font-mono">{snapshot.population}</span>
         <span className="text-slate-400 text-xs ml-1 hidden sm:inline">{t('hud.alive')}</span>
       </span>
-      <span>
+      <span data-tip={t('tip.gen')} title={t('tip.gen')}>
         <span className="text-sky-300 font-semibold font-mono">{snapshot.generation}</span>
         <span className="text-slate-400 text-xs ml-1 hidden sm:inline">{t('hud.gen')}</span>
       </span>
-      <span className="hidden md:inline">
+      <span className="hidden md:inline" data-tip={t('tip.species')} title={t('tip.species')}>
         <span className="text-fuchsia-300 font-semibold font-mono">
           {snapshot.species.filter((sp) => sp.population > 0).length}
         </span>
         <span className="text-slate-400 text-xs ml-1">{t('hud.species')}</span>
       </span>
-      <span className="font-mono text-xs text-slate-500 hidden md:inline">
+      <span className="font-mono text-xs text-slate-500 hidden md:inline" data-tip={t('tip.fps')} title={t('tip.fps')}>
         {snapshot.fps} {t('hud.fps')}
       </span>
 
@@ -220,6 +222,7 @@ export function App() {
       <Menu />
       <MobileNav />
       <ActiveEvents />
+      <ActiveToolChip />
       <PanelHost />
       <Inspector />
       <Minimap />

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Biome, BIOME_KEYS, CohortProfile, CohortSex, GodTool } from '@/types';
 import { useStore } from '@/state/store';
+import { useIsMobile } from './useIsMobile';
 
 const PAINTABLE: Biome[] = [
   Biome.Grassland,
@@ -53,11 +54,27 @@ const GROUPS: { titleIcon: string; tools: { id: GodTool; icon: string; key: stri
     titleIcon: '⚡',
     tools: [
       { id: 'bless', icon: '🌟', key: 'bless' },
+      { id: 'bible', icon: '📖', key: 'bible' },
       { id: 'smite', icon: '⚡', key: 'smite', danger: true },
       { id: 'kill', icon: '💀', key: 'kill', danger: true },
     ],
   },
 ];
+
+/** Tools that need a target click on the map (panel should step aside). */
+const MAP_TOOLS = new Set([
+  'terraform',
+  'food',
+  'wall',
+  'gate',
+  'spawn',
+  'tribe',
+  'humans',
+  'bless',
+  'smite',
+  'bible',
+  'kill',
+]);
 
 const COHORT_SEXES: CohortSex[] = ['mixed', 'M', 'F'];
 const COHORT_PROFILES: CohortProfile[] = ['balanced', 'smart', 'strong', 'nocturnal'];
@@ -71,8 +88,10 @@ const PROFILE_LABEL: Record<CohortProfile, string> = {
 
 export function GodSection() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const tool = useStore((s) => s.tool);
   const setTool = useStore((s) => s.setTool);
+  const setPanel = useStore((s) => s.setPanel);
   const brushBiome = useStore((s) => s.brushBiome);
   const setBrushBiome = useStore((s) => s.setBrushBiome);
   const brushRadius = useStore((s) => s.brushRadius);
@@ -86,15 +105,15 @@ export function GodSection() {
   const cohortProfile = useStore((s) => s.cohortProfile);
   const setCohortProfile = useStore((s) => s.setCohortProfile);
 
+  /** Arm a tool; on mobile, step the panel aside so the map is usable. */
+  const armTool = (id: typeof tool) => {
+    const next = tool === id ? 'none' : id;
+    setTool(next);
+    if (isMobile && next !== 'none' && MAP_TOOLS.has(next)) setPanel('none');
+  };
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Active tool hint so it's obvious what a map click will do. */}
-      {tool !== 'none' && (
-        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-100">
-          {t(`god.${tool}Hint`)}
-        </div>
-      )}
-
       {GROUPS.map((g, gi) => (
         <div key={gi} className="flex flex-col gap-1.5">
           {g.tools.map((tl) => (
@@ -103,7 +122,7 @@ export function GodSection() {
               className={`btn text-left flex items-center gap-2.5 py-2 ${
                 tool === tl.id ? 'btn-active' : tl.danger ? 'btn-danger' : ''
               }`}
-              onClick={() => setTool(tool === tl.id ? 'none' : tl.id)}
+              onClick={() => armTool(tl.id)}
             >
               <span className="text-base shrink-0">{tl.icon}</span>
               <span className="flex-1 min-w-0">

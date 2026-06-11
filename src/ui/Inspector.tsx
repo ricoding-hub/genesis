@@ -40,8 +40,9 @@ export function Inspector() {
           className="w-3.5 h-3.5 rounded-full border border-white/30"
           style={{ background: info.speciesColor }}
         />
-        <span className="text-xs font-semibold">
-          {t(`archetype.${info.archetype}`)} {info.sex === 'M' ? '♂' : '♀'} #{info.id}
+        <span className="text-xs font-semibold truncate">
+          {info.name ? `${info.name} · ` : ''}
+          {t(`archetype.${info.archetype}`)} {info.sex === 'M' ? '♂' : '♀'}
         </span>
         <button
           className="btn ml-auto !px-1.5 !py-0.5"
@@ -54,8 +55,9 @@ export function Inspector() {
         </button>
       </div>
 
-      <div className="text-[10px] text-slate-400 mb-2 flex gap-3">
+      <div className="text-[10px] text-slate-400 mb-2 flex flex-wrap gap-x-3 gap-y-0.5">
         <span>{t(`stage.${info.stage}`)}</span>
+        <span>{t('inspector.years', { a: info.ageYears, e: info.expectancyYears })}</span>
         <span>{t('inspector.gen', { n: info.generation })}</span>
         <span>{t('inspector.offspring', { n: info.children })}</span>
       </div>

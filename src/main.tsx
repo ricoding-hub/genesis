@@ -147,6 +147,16 @@ function applyTool(screenX: number, screenY: number): void {
       toast(name ? 'toast.fearWrath' : 'toast.smote', name ? { tribe: name } : undefined);
       break;
     }
+    case 'bible': {
+      const bn = st.bibleName.trim();
+      if (!bn) {
+        toast('toast.bibleNeedsName');
+        break;
+      }
+      const tribe = sim.sendBible(w.x, w.y, bn);
+      toast(tribe ? 'toast.bibleSent' : 'toast.tribeNoGround', tribe ? { tribe, name: bn } : undefined);
+      break;
+    }
     default:
       break;
   }
@@ -187,7 +197,8 @@ window.addEventListener('pointerdown', (e) => {
     tool === 'tribe' ||
     tool === 'humans' ||
     tool === 'bless' ||
-    tool === 'smite'
+    tool === 'smite' ||
+    tool === 'bible'
   ) {
     applyTool(e.clientX, e.clientY);
   } else {

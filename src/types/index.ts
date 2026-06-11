@@ -130,7 +130,8 @@ export type GodTool =
   | 'gate'
   | 'humans'
   | 'bless'
-  | 'smite';
+  | 'smite'
+  | 'bible';
 
 /** Biological sex (humanoids reproduce sexually). */
 export type Sex = 'M' | 'F';
@@ -318,6 +319,11 @@ export interface CreatureInfo {
   archetype: string;
   children: number;
   sex: Sex;
+  /** Displayed age and life expectancy in realistic years. */
+  ageYears: number;
+  expectancyYears: number;
+  /** Personal name — humanoids in a tribe only. */
+  name: string | null;
   /** Civilization data — present only for humanoids in a tribe. */
   tribeName: string | null;
   tribeEra: Era | null;

@@ -5,6 +5,7 @@ import {
   PopulationPoint,
 } from '@/types';
 import { averageGenes } from './Genetics';
+import { YEAR_SECONDS } from '@/utils/time';
 import type { Creature } from './Creature';
 import type { SpeciesTracker } from './Species';
 
@@ -37,9 +38,10 @@ export class StatsCollector {
     this.deaths++;
   }
 
-  /** Capture one sample point (call ~every 2 sim-seconds). */
+  /** Capture one sample point (call ~every 2 sim-seconds). Chart time is years. */
   sample(worldAge: number, creatures: Creature[], tracker: SpeciesTracker): void {
-    const point: PopulationPoint = { t: Math.round(worldAge), total: creatures.length };
+    const years = Math.round(worldAge / YEAR_SECONDS);
+    const point: PopulationPoint = { t: years, total: creatures.length };
     // Top species only (keeps recharts payload small).
     const living = tracker.species
       .filter((s) => s.population > 0)
@@ -50,7 +52,7 @@ export class StatsCollector {
     if (this.popSeries.length > MAX_POINTS) this.popSeries.shift();
 
     this.diversitySeries.push({
-      t: Math.round(worldAge),
+      t: years,
       diversity: Number(tracker.diversity(creatures.length).toFixed(3)),
     });
     if (this.diversitySeries.length > MAX_POINTS) this.diversitySeries.shift();

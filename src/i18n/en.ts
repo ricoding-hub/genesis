@@ -36,6 +36,7 @@ export const en = {
 
   hud: {
     day: 'Day {{n}}',
+    year: 'Year {{n}}',
     alive: 'alive',
     gen: 'gen',
     species: 'species',
@@ -43,6 +44,19 @@ export const en = {
     stats: 'Stats',
     civ: 'Civ',
     help: 'Help & shortcuts',
+  },
+
+  tip: {
+    year: 'World year (1 year ≈ a few sim-seconds)',
+    alive: 'Creatures alive right now',
+    gen: 'Highest generation born',
+    species: 'Distinct living species',
+    fps: 'Frames per second',
+  },
+
+  chip: {
+    options: 'Open tool options',
+    cancel: 'Cancel tool',
   },
 
   controls: {
@@ -77,6 +91,9 @@ export const en = {
     blessHint: 'Rain food and healing; raises your Favor',
     smite: 'Smite',
     smiteHint: 'A divine bolt strikes whoever you touch',
+    bible: 'Bible',
+    bibleHint: 'Type a name and tap them: believers adopt it as sacred',
+    bibleName: 'Sacred name',
     paintBiome: 'Paint biome',
     brushSize: 'Brush size',
     randomDNA: 'Random DNA',
@@ -169,6 +186,7 @@ export const en = {
   inspector: {
     gen: 'gen {{n}}',
     offspring: '{{n}} offspring',
+    years: '{{a}} yrs · life ~{{e}}',
     energy: 'Energy',
     age: 'Age',
     worships: 'worships {{deity}}',
@@ -182,9 +200,8 @@ export const en = {
     none: 'No tribe has awakened yet. Humanoids must survive and gather before the Spark of Sapience ignites — or use the Found tribe god tool to settle one now.',
     chronicle: 'Chronicle',
     empty: 'History has yet to be written…',
-    noFaith: 'no faith yet',
     favor: 'Favor',
-    days: '{{n}}d',
+    years: 'Year {{n}}',
   },
 
   milestone: {
@@ -199,6 +216,7 @@ export const en = {
     sacrifice: '{{tribe}} offered you a sacrifice',
     bless: 'You blessed {{tribe}} with your favor',
     smite: 'You smote {{tribe}} with your wrath',
+    bible: '{{tribe}} received your Bible: they revere the name {{name}}',
   },
 
   era: {
@@ -337,6 +355,8 @@ export const en = {
     fearWrath: 'The {{tribe}} tremble at your wrath',
     templeBuilt: 'The {{tribe}} raised a temple in your name',
     sacrificeMade: 'The {{tribe}} offer you a sacrifice',
+    bibleNeedsName: 'Type a name for the Bible first',
+    bibleSent: '📖 The {{tribe}} now revere the name {{name}}',
   },
 
   help: {
